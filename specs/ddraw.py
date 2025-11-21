@@ -156,7 +156,7 @@ DirectDrawCapsFlags = Flags(DWORD, [
     "DDSCAPS_OVERLAY",
     "DDSCAPS_PALETTE",
     "DDSCAPS_PRIMARYSURFACE",
-    "DDSCAPS_RESERVED3", # was DDSCAPS_PRIMARYSURFACELEFT
+    "DDSCAPS_PRIMARYSURFACELEFT", # replaced with "DDSCAPS_RESERVED3" in newer SDK
     "DDSCAPS_SYSTEMMEMORY",
     "DDSCAPS_TEXTURE",
     "DDSCAPS_3DDEVICE",
@@ -179,7 +179,7 @@ DirectDrawCapsFlags = Flags(DWORD, [
 ])
 
 DirectDrawCapabilityFlags2 = Flags(DWORD, [
-    "DDSCAPS2_RESERVED4", # was DDSCAPS2_HARDWAREDEINTERLACE
+    "DDSCAPS2_HARDWAREDEINTERLACE", # replaced with "DDSCAPS2_RESERVED4" in newer SDK
     "DDSCAPS2_HINTDYNAMIC",
     "DDSCAPS2_HINTSTATIC",
     "DDSCAPS2_TEXTUREMANAGE",
@@ -950,7 +950,7 @@ DirectDrawPaletteCapsFlags = Flags(DWORD, [
     "DDPCAPS_4BIT",
     "DDPCAPS_8BITENTRIES",
     "DDPCAPS_8BIT",
-    #"DDPCAPS_INITIALIZE", # Obsolete.  It previously defined as 0x8 but defined now 0x0.
+    "DDPCAPS_INITIALIZE", # Obsolete. It was previously defined as 0x8 but defined now 0x0 in newer SDK
     "DDPCAPS_PRIMARYSURFACE",
     "DDPCAPS_PRIMARYSURFACELEFT",
     "DDPCAPS_ALLOW256",

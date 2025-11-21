@@ -135,8 +135,8 @@ IDirect3DDevice8.methods += [
     StdMethod(HRESULT, "GetDisplayMode", [Out(Pointer(D3DDISPLAYMODE), "pMode")], sideeffects=False),
     StdMethod(HRESULT, "GetCreationParameters", [Out(Pointer(D3DDEVICE_CREATION_PARAMETERS), "pParameters")], sideeffects=False),
     StdMethod(HRESULT, "SetCursorProperties", [(UINT, "XHotSpot"), (UINT, "YHotSpot"), (PDIRECT3DSURFACE8, "pCursorBitmap")]),
-    # XXX: There are different signatures of
-    # IDirect3DDevice8::SetCursorPosition depending on the DXSDK version
+    # FIXME: There are different signatures of IDirect3DDevice8::SetCursorPosition depending on the version of directx headers
+    # Win10SDK headers have Int version and mingw headers have UINT one instead, just like in old MS SDKs
     #StdMethod(Void, "SetCursorPosition", [(UINT, "XScreenSpace"), (UINT, "YScreenSpace"), (D3DCURSOR, "Flags")]),
     StdMethod(Void, "SetCursorPosition", [(Int, "X"), (Int, "Y"), (D3DCURSOR, "Flags")]),
     StdMethod(BOOL, "ShowCursor", [(BOOL, "bShow")]),

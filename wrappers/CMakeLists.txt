@@ -311,7 +311,7 @@ if (WIN32)
     endif ()
 
     # d2d1.dll, dwrite.dll
-    if (DirectX_D2D1_1_INCLUDE_FOUND)
+    if (MSVC AND DirectX_D2D1_1_INCLUDE_FOUND)
         include_directories (BEFORE SYSTEM ${DirectX_D2D1_1_INCLUDE_DIR})
 
         add_custom_command (
