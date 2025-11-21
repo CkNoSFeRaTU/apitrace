@@ -60,3 +60,5 @@ Testing
 os_thread_test
 /build
 version.h
+/.vs
+/out

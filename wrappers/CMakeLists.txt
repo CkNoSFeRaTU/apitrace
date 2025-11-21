@@ -122,7 +122,7 @@ if (WIN32)
                 ${CMAKE_SOURCE_DIR}/specs/winapi.py
                 ${CMAKE_SOURCE_DIR}/specs/stdapi.py
         )
-        add_library (ddrawtrace MODULE ddraw.def ddrawtrace.cpp)
+        add_library (ddrawtrace SHARED ddraw.def ddrawtrace.cpp)
         target_link_libraries (ddrawtrace
             trace
         )
@@ -130,7 +130,7 @@ if (WIN32)
             PREFIX ""
             OUTPUT_NAME ddraw
         )
-        install (TARGETS ddrawtrace LIBRARY DESTINATION ${WRAPPER_INSTALL_DIR})
+        install (TARGETS ddrawtrace LIBRARY RUNTIME DESTINATION ${WRAPPER_INSTALL_DIR})
         install_pdb (ddrawtrace DESTINATION ${WRAPPER_INSTALL_DIR})
     endif ()
 
