@@ -288,10 +288,7 @@ dumpDevice(StateWriter &writer, IDirect3DDevice8 *pDevice)
 
     dumpShaders(writer, pDevice);
 
-    writer.beginMember("textures");
-    writer.beginObject();
-    writer.endObject();
-    writer.endMember(); // textures
+    dumpTextures(writer, pDevice);
 
     dumpFramebuffer(writer, pDevice);
 }

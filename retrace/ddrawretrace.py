@@ -39,9 +39,14 @@ class D3DRetracer(Retracer):
     def retraceApi(self, api):
         print('// Swizzling mapping for lock addresses')
         print('static std::map<void *, void *> _maps;')
+        #print('typedef std::pair<void *, UINT> MappingKey;')
+        #print('static std::map<MappingKey, void *> _maps;')
         print()
         # TODO: Keep a table of windows
-        print('static HWND g_hWnd;')
+        print('static HWND g_hWnd{0};')
+        print('static int g_width = 0, g_height = 0;');
+        print('static bool g_clipper = false;')
+        print('static bool g_windowed = false;')
         print()
 
         Retracer.retraceApi(self, api)
@@ -56,34 +61,9 @@ class D3DRetracer(Retracer):
             else:
                 print(r'    d3d7Dumper.bindDevice(_this);')
 
-        # create windows as neccessary
-        hWndArg = method.getArgByType(HWND)
-        if hWndArg is not None:
-            # FIXME: Try to guess the window size (e.g., from IDirectDrawSurface7::Blt)
-            print(r'    if (!g_hWnd) {')
-            print(r'        g_hWnd = d3dretrace::createWindow(512, 512);')
-            print(r'    }')
-            print(r'    %s = g_hWnd;' % hWndArg.name)
-
-
-        if method.name == 'Lock':
-            # Reset _DONOTWAIT flags. Otherwise they may fail, and we have no
-            # way to cope with it (other than retry).
-            mapFlagsArg = method.getArgByName('dwFlags')
-            if mapFlagsArg is not None:
-                print(r'    dwFlags &= ~DDLOCK_DONOTWAIT;')
-                print(r'    dwFlags |= DDLOCK_WAIT;')
-
-        Retracer.invokeInterfaceMethod(self, interface, method)
-
-        if method.name == 'CreateDevice':
-            print(r'    if (FAILED(_result)) {')
-            print(r'        exit(1);')
-            print(r'    }')
-
         # notify frame has been completed
         # process events after presents
-        if interface.name.startswith('IDirectDrawSurface') and method.name == 'Blt':
+        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'Flip', 'Unlock', 'ReleaseDC'):
             if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                 print(r'    DDSCAPS2 ddsCaps;')
             else:
@@ -93,26 +73,106 @@ class D3DRetracer(Retracer):
             print(r'        retrace::frameComplete(call);')
             print(r'        d3dretrace::processEvents();')
             print(r'    }')
+        if interface.name.startswith('IDirect3DDevice') and method.name == 'EndScene':
+            print(r'    retrace::frameComplete(call);')
+            print(r'    d3dretrace::processEvents();')
+        # FIXME: these should be handled too?
+        #if interface.name.startswith('IDirectDrawPalette') and method.name == 'SetEntries':
+        #if interface.name.startswith('IDirectColorControl') and method.name == 'SetColorControls':
+
+        # handle windows
+        hWndArg = method.getArgByType(HWND)
+        if hWndArg is not None:
+            if method.name == "SetCooperativeLevel":
+                print(r'    if (!g_hWnd) {')
+                print(r'        g_hWnd = d3dretrace::createWindow(g_width ? g_width : 640, g_height ? g_height : 480);')
+                print(r'    }')
+                print(r'    %s = g_hWnd;' % hWndArg.name)
+                print(r'    _HWND_map[static_cast<HWND>((call.arg(1)).toPointer())] = g_hWnd;')
+                print(r'    g_windowed = !(dwFlags & DDSCL_FULLSCREEN);')
+            else:
+                print(r'    %s = g_hWnd;' % hWndArg.name)
 
         if method.name == 'Lock':
-            print('    VOID *_pbData = NULL;')
-            print('    size_t _MappedSize = 0;')
-            # FIXME: determine the mapping size
-            #print '    _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[:-1])
-            print('    if (_MappedSize) {')
-            print('        _maps[_this] = _pbData;')
-            # TODO: check pitches match
-            print('    } else {')
-            print('        return;')
-            print('    }')
-        
-        if method.name == 'Unlock':
-            print('    VOID *_pbData = 0;')
-            print('    _pbData = _maps[_this];')
-            print('    if (_pbData) {')
-            print('        retrace::delRegionByPointer(_pbData);')
-            print('        _maps[_this] = 0;')
-            print('    }')
+            # Reset _DONOTWAIT flags. Otherwise they may fail, and we have no
+            # way to cope with it (other than retry).
+            mapFlagsArg = method.getArgByName('dwFlags')
+            if mapFlagsArg is not None:
+                print(r'    dwFlags &= ~DDLOCK_DONOTWAIT;')
+                print(r'    dwFlags |= DDLOCK_WAIT;')
+
+        # Hack to cooperate with clipper.
+        if interface.name.startswith("IDirectDrawSurface"):
+            if method.name == 'Blt':
+                print(r'    RECT cRect;')
+                print(r'    if (g_windowed && g_clipper && lpDestRect && GetWindowRect(g_hWnd, &cRect)) {')
+                print(r'        (*lpDestRect).left += cRect.left;')
+                print(r'        (*lpDestRect).right += cRect.left;')
+                print(r'        (*lpDestRect).top += cRect.top;')
+                print(r'        (*lpDestRect).bottom += cRect.top;')
+                print(r'    }')
+            if method.name == 'SetClipper':
+                if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
+                    print(r'    DDSCAPS2 ddsCaps;')
+                else:
+                    print(r'    DDSCAPS ddsCaps;')
+                print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE))) {')
+                print(r'        g_clipper = true;')
+                print(r'    }')
+
+        Retracer.invokeInterfaceMethod(self, interface, method)
+
+        if method.name == 'CreateDevice':
+            print(r'    if (FAILED(_result)) {')
+            print(r'        exit(1);')
+            print(r'    }')
+
+        # Hack to set window size according to primary surfaces sizes with some slack just in case there were menu panels.
+        if interface.name.startswith('IDirectDraw'):
+            if method.name in ('SetDisplayMode'):
+                print(r'    g_height = dwHeight;')
+                print(r'    g_width = dwWidth;')
+                print(r'    if (g_windowed)')
+                print(r'        SetWindowPos(g_hWnd, NULL, 0, 0, g_width, g_height, 0);')
+            if method.name in ('CreateSurface'):
+                print(r'    if (g_windowed && g_clipper && lpDDSurfaceDesc) {')
+                print(r'        if ((*lpDDSurfaceDesc).dwHeight > 0 && (*lpDDSurfaceDesc).dwWidth > 0 ')
+                print(r'            && ((*lpDDSurfaceDesc).ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
+                print(r'            g_height = (*lpDDSurfaceDesc).dwHeight + 64;')
+                print(r'            g_width = (*lpDDSurfaceDesc).dwWidth + 16;')
+                print(r'            SetWindowPos(g_hWnd, NULL, 0, 0, g_width, g_height, 0);')
+                print(r'        }')
+                print(r'    }')
+
+        if (interface.name.startswith('IDirectDrawSurface') or interface.name.startswith("IDirect3DVertexBuffer")):
+            # FIXME: DrawSurface GetDC/ReleaseDC should be handled as well
+            if method.name in ('Lock'):
+                print('    VOID *_pbData = nullptr;')
+                print('    size_t _MappedSize = 0;')
+
+                if interface.name.startswith("IDirect3DVertexBuffer"):
+                    print('    if (true) {')
+                else:
+                    print('    if (!(dwFlags & DDLOCK_READONLY)) {')
+                if interface.name.startswith("IDirect3DVertexBuffer"):
+                    print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
+                else:
+                    print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
+                print('    }')
+                print('    if (_MappedSize) {')
+                print('        _maps[_this] = _pbData;')
+                self.checkPitchMismatch(method);
+                print('    } else {')
+                print('        return;')
+                print('    }')
+
+            if method.name in ('Unlock'):
+                print('    VOID *_pbData = 0;')
+                print('    _pbData = _maps[_this];')
+                print('    if (_pbData) {')
+                print('        retrace::delRegionByPointer(_pbData);')
+                print('        _maps[_this] = 0;')
+                print('    }')
 
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):
         # Handle DDCREATE_* flags
@@ -138,6 +198,7 @@ def main():
     api = API()
     
     print(r'#include "d3dimports.hpp"')
+    print(r'#include "d3d7size.hpp"')
     api.addModule(ddraw)
     print()
     print('''static d3dretrace::D3DDumper<IDirect3DDevice7> d3d7Dumper;''')

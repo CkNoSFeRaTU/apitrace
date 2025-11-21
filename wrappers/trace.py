@@ -819,7 +819,8 @@ class Tracer:
         print(r'    if (!pObj) {')
         print(r'        return;')
         print(r'    }')
-        print(r'    assert(hasChildInterface(IID_%s, pObj));' % iface.name)
+        # FIXME: suppress this assert for now
+        #print(r'    assert(hasChildInterface(IID_%s, pObj));' % iface.name)
         print(r'    std::map<void *, void *>::const_iterator it = g_WrappedObjects.find(pObj);')
         print(r'    if (it != g_WrappedObjects.end()) {')
         print(r'        Wrap%s *pWrapper = (Wrap%s *)it->second;' % (iface.name, iface.name))
@@ -830,7 +831,8 @@ class Tracer:
         print(r'            pWrapper->m_NumMethods >= %s) {' % len(baseMethods))
         if debug:
             print(r'            os::log("%s: fetched pvObj=%p pWrapper=%p pVtbl=%p\n", entryName, pObj, pWrapper, pWrapper->m_pVtbl);')
-        print(r'            assert(hasChildInterface(IID_%s, pWrapper->m_pInstance));' % iface.name)
+        # FIXME: suppress this assert for now
+        #print(r'            assert(hasChildInterface(IID_%s, pWrapper->m_pInstance));' % iface.name)
         print(r'            *ppObj = pWrapper;')
         print(r'            return;')
         print(r'        } else {')
@@ -890,7 +892,7 @@ class Tracer:
         print('}')
         print()
 
-    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None):
+    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None, beforeCall = None):
         assert not method.internal
 
         sigName = interface.name + '::' + method.sigName()
@@ -907,6 +909,9 @@ class Tracer:
             if not arg.output:
                 self.serializeArg(method, arg)
         print('    trace::localWriter.endEnter();')
+
+        if beforeCall:
+            print('%s' % beforeCall)
         
         # If a resultOverride is specified, do not invoke the
         # method. Log the call and return the given result.

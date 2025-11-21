@@ -54,6 +54,7 @@ public:
     ChannelType channelType;
     unsigned bytesPerChannel;
     unsigned bytesPerPixel;
+    std::string formatName;
 
     // Flipped vertically or not
     bool flipped;

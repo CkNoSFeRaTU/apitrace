@@ -97,9 +97,21 @@ DDCOLORKEY = Struct("DDCOLORKEY", [
 ])
 LPDDCOLORKEY = Pointer(DDCOLORKEY)
 
+DirectDrawSurfaceBltFxFlags = Flags(DWORD, [
+    "DDBLTFX_ARITHSTRETCHY",
+    "DDBLTFX_MIRRORLEFTRIGHT",
+    "DDBLTFX_MIRRORUPDOWN",
+    "DDBLTFX_NOTEARING",
+    "DDBLTFX_ROTATE180",
+    "DDBLTFX_ROTATE270",
+    "DDBLTFX_ROTATE90",
+    "DDBLTFX_ZBUFFERRANGE",
+    "DDBLTFX_ZBUFFERBASEDEST",
+])
+
 DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwSize"),
-    (DWORD, "dwDDFX"),
+    (DirectDrawSurfaceBltFxFlags, "dwDDFX"),
     (DWORD, "dwROP"),
     (DWORD, "dwDDROP"),
     (DWORD, "dwRotationAngle"),
@@ -110,14 +122,14 @@ DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwZDestConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwZDestConst"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSZBufferDest"),
+    #(DWORD, "dwZDestConst"),
+    (LPDIRECTDRAWSURFACE, "lpDDSZBufferDest"),
 
     (DWORD, "dwZSrcConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwZSrcConst"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSZBufferSrc"),
+    #(DWORD, "dwZSrcConst"),
+    (LPDIRECTDRAWSURFACE, "lpDDSZBufferSrc"),
 
     (DWORD, "dwAlphaEdgeBlendBitDepth"),
     (DWORD, "dwAlphaEdgeBlend"),
@@ -125,20 +137,20 @@ DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwAlphaDestConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwAlphaDestConst"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    #(DWORD, "dwAlphaDestConst"),
+    (LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwAlphaSrcConst"),
+    #(DWORD, "dwAlphaSrcConst"),
     (LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwFillColor"),
-    (DWORD, "dwFillDepth"),
-    (DWORD, "dwFillPixel"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSPattern"),
+    #(DWORD, "dwFillColor"),
+    #(DWORD, "dwFillDepth"),
+    #(DWORD, "dwFillPixel"),
+    (LPDIRECTDRAWSURFACE, "lpDDSPattern"),
 
     (DDCOLORKEY, "ddckDestColorkey"),
     (DDCOLORKEY, "ddckSrcColorkey"),
@@ -612,14 +624,14 @@ DDOVERLAYFX = Struct("DDOVERLAYFX", [
     (DWORD, "dwAlphaDestConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwAlphaDestConst"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    #(DWORD, "dwAlphaDestConst"),
+    (LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
     # FIXME: Anonymous union
-    (DWORD, "dwAlphaSrcConst"),
-    #(LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
+    #(DWORD, "dwAlphaSrcConst"),
+    (LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
 
     (DDCOLORKEY, "dckDestColorkey"),
     (DDCOLORKEY, "dckSrcColorkey"),
@@ -715,7 +727,7 @@ DDSURFACEDESC = Struct("DDSURFACEDESC", [
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
-    (IntPointer("LPVOID"), "lpSurface"),
+    (LinearPointer(Void, "_MappedSize"), "lpSurface"),
     (DDCOLORKEY, "ddckCKDestOverlay"),
     (DDCOLORKEY, "ddckCKDestBlt"),
     (DDCOLORKEY, "ddckCKSrcOverlay"),
@@ -746,10 +758,10 @@ DDSURFACEDESC2 = Struct("DDSURFACEDESC2", [
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
-    (IntPointer("LPVOID"), "lpSurface"),
+    (LinearPointer(Void, "_MappedSize"), "lpSurface"),
 
     # FIXME: Anonymous union
-    (DDCOLORKEY, "ddckCKDestOverlay"),
+    #(DDCOLORKEY, "ddckCKDestOverlay"),
     (DWORD, "dwEmptyFaceColor"),
 
     (DDCOLORKEY, "ddckCKDestBlt"),
@@ -1140,18 +1152,6 @@ DirectDrawSurfaceLockFlags = Flags(DWORD, [
     "DDLOCK_NODIRTYUPDATE",
 ])
 
-DirectDrawSurfaceBltFxFlags = Flags(DWORD, [
-    "DDBLTFX_ARITHSTRETCHY",
-    "DDBLTFX_MIRRORLEFTRIGHT",
-    "DDBLTFX_MIRRORUPDOWN",
-    "DDBLTFX_NOTEARING",
-    "DDBLTFX_ROTATE180",
-    "DDBLTFX_ROTATE270",
-    "DDBLTFX_ROTATE90",
-    "DDBLTFX_ZBUFFERRANGE",
-    "DDBLTFX_ZBUFFERBASEDEST",
-])
-
 DirectDrawOverlayFxFlags = Flags(DWORD, [
     "DDOVERFX_ARITHSTRETCHY",
     "DDOVERFX_MIRRORLEFTRIGHT",
@@ -1475,7 +1475,7 @@ IDirectDrawSurface.methods += [
     StdMethod(DDRESULT, "GetSurfaceDesc", [Out(LPDDSURFACEDESC, "lpDDSurfaceDesc")], sideeffects=False),
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
-    StdMethod(DDRESULT, "Lock", [(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), (DirectDrawSurfaceLockFlags, "dwFlags"), (HANDLE, "hEvent")]),
+    StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
     StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
@@ -1511,7 +1511,7 @@ IDirectDrawSurface2.methods += [
     StdMethod(DDRESULT, "GetSurfaceDesc", [Out(LPDDSURFACEDESC, "lpDDSurfaceDesc")], sideeffects=False),
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
-    StdMethod(DDRESULT, "Lock", [(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), (DirectDrawSurfaceLockFlags, "dwFlags"), (HANDLE, "hEvent")]),
+    StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
     StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
@@ -1550,7 +1550,7 @@ IDirectDrawSurface3.methods += [
     StdMethod(DDRESULT, "GetSurfaceDesc", [Out(LPDDSURFACEDESC, "lpDDSurfaceDesc")], sideeffects=False),
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
-    StdMethod(DDRESULT, "Lock", [(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), (DirectDrawSurfaceLockFlags, "dwFlags"), (HANDLE, "hEvent")]),
+    StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
     StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
@@ -1590,7 +1590,7 @@ IDirectDrawSurface4.methods += [
     StdMethod(DDRESULT, "GetSurfaceDesc", [Out(LPDDSURFACEDESC2, "lpDDSurfaceDesc")], sideeffects=False),
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
-    StdMethod(DDRESULT, "Lock", [(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (DirectDrawSurfaceLockFlags, "dwFlags"), (HANDLE, "hEvent")]),
+    StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
     StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
@@ -1635,7 +1635,7 @@ IDirectDrawSurface7.methods += [
     StdMethod(DDRESULT, "GetSurfaceDesc", [Out(LPDDSURFACEDESC2, "lpDDSurfaceDesc")], sideeffects=False),
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", [], sideeffects=False),
-    StdMethod(DDRESULT, "Lock", [(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (DirectDrawSurfaceLockFlags, "dwFlags"), (HANDLE, "hEvent")]),
+    StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
     StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),

@@ -67,6 +67,9 @@ image::Image *
 getRenderTargetImage(IDirect3DDevice7 *pDevice);
 
 void
+dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice);
+
+void
 dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice);
 
 void
@@ -79,6 +82,9 @@ dumpDevice(StateWriter &writer, IDirect3DDevice7 *pDevice);
 
 image::Image *
 getRenderTargetImage(IDirect3DDevice8 *pDevice);
+
+void
+dumpTextures(StateWriter &writer, IDirect3DDevice8 *pDevice);
 
 void
 dumpFramebuffer(StateWriter &writer, IDirect3DDevice8 *pDevice);

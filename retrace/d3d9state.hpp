@@ -38,7 +38,6 @@ namespace image {
 
 namespace d3dstate {
 
-
 image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
              void *SrcData,

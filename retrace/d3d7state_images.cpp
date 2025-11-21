@@ -51,6 +51,17 @@ typedef enum _D3DFORMAT
     D3DFMT_X4R4G4B4             = 30,
     D3DFMT_A2B10G10R10          = 31,
 
+    D3DFMT_A8P8                 = 40,
+    D3DFMT_P8                   = 41,
+
+    D3DFMT_L8                   = 50,
+    D3DFMT_A8L8                 = 51,
+    D3DFMT_A4L4                 = 52,
+
+    D3DFMT_V8U8                 = 60,
+    D3DFMT_L6V5U5               = 61,
+    D3DFMT_X8L8V8U8             = 62,
+
     D3DFMT_D16_LOCKABLE         = 70,
     D3DFMT_D32                  = 71,
     D3DFMT_D15S1                = 73,
@@ -62,12 +73,16 @@ typedef enum _D3DFORMAT
     D3DFMT_D32F_LOCKABLE        = 82,
     D3DFMT_D24FS8               = 83,
 
+    D3DFMT_DXT1                 = MAKEFOURCC('D', 'X', 'T', '1'),
+    D3DFMT_DXT2                 = MAKEFOURCC('D', 'X', 'T', '2'),
+    D3DFMT_DXT3                 = MAKEFOURCC('D', 'X', 'T', '3'),
+    D3DFMT_DXT4                 = MAKEFOURCC('D', 'X', 'T', '4'),
+    D3DFMT_DXT5                 = MAKEFOURCC('D', 'X', 'T', '5'),
+
     D3DFMT_FORCE_DWORD          = 0x7fffffff
 } D3DFORMAT;
 
-
 namespace d3dstate {
-
 
 image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
@@ -75,6 +90,8 @@ ConvertImage(D3DFORMAT SrcFormat,
              INT SrcPitch,
              UINT Width, UINT Height);
 
+const char *
+formatToString(D3DFORMAT fmt);
 
 static D3DFORMAT
 convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
@@ -86,13 +103,20 @@ convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
     switch (ddpfPixelFormat.dwFlags) {
     case DDPF_RGB:
         switch (ddpfPixelFormat.dwRGBBitCount) {
-        case 32:
-            if (ddpfPixelFormat.dwRBitMask == 0xff0000 &&
-                ddpfPixelFormat.dwGBitMask == 0x00ff00 &&
-                ddpfPixelFormat.dwBBitMask == 0x0000ff) {
-                return D3DFMT_X8R8G8B8;
-            }
+        case 8:
+            return (ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXED8) ? D3DFMT_P8 : D3DFMT_R3G3B2;
+        case 16:
+            switch (ddpfPixelFormat.dwRBitMask) {
+            case (0x0F << 8):
+                return D3DFMT_A4R4G4B4;
+            case (0x1F << 10):
+                return (ddpfPixelFormat.dwRGBAlphaBitMask) ? D3DFMT_A1R5G5B5 : D3DFMT_X1R5G5B5;
+            case (0x1F << 11):
+                return D3DFMT_R5G6B5;
             break;
+            }
+        case 32:
+            return (ddpfPixelFormat.dwRGBAlphaBitMask) ? D3DFMT_A8R8G8B8 : D3DFMT_X8R8G8B8;
         }
         break;
     case DDPF_ZBUFFER:
@@ -107,7 +131,51 @@ convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
             if (ddpfPixelFormat.dwZBitMask == 0x00ffffff) {
                 return D3DFMT_D24X8;
             }
+            switch (ddpfPixelFormat.dwStencilBitMask) {
+            case 0:
+                return D3DFMT_D24X8;
+            case 0xFF:
+                return D3DFMT_D24S8;
+            case (DWORD(0xFF << 24)):
+                return D3DFMT_D24S8;
+            }
             break;
+        }
+        break;
+    case DDPF_LUMINANCE:
+        switch (ddpfPixelFormat.dwLuminanceBitCount) {
+        case 8: {
+            switch (ddpfPixelFormat.dwLuminanceBitMask) {
+            case (0xF):
+                return D3DFMT_L8;
+            case (0x8):
+                return D3DFMT_A4L4;
+            }
+        }
+        case 16:
+            return D3DFMT_A8L8;
+        }
+        break;
+    case DDPF_BUMPDUDV:
+        switch (ddpfPixelFormat.dwBumpBitCount) {
+        case 16:
+          return ddpfPixelFormat.dwBumpLuminanceBitMask ? D3DFMT_L6V5U5 : D3DFMT_V8U8;
+        case 32:
+          return D3DFMT_X8L8V8U8;
+        }
+        break;
+    case DDPF_FOURCC:
+        switch (ddpfPixelFormat.dwFourCC) {
+        case MAKEFOURCC('D', 'X', 'T', '1'):
+            return D3DFMT_DXT1;
+        case MAKEFOURCC('D', 'X', 'T', '2'):
+            return D3DFMT_DXT2;
+        case MAKEFOURCC('D', 'X', 'T', '3'):
+            return D3DFMT_DXT3;
+        case MAKEFOURCC('D', 'X', 'T', '4'):
+            return D3DFMT_DXT4;
+        case MAKEFOURCC('D', 'X', 'T', '5'):
+            return D3DFMT_DXT5;
         }
         break;
     }
@@ -116,8 +184,7 @@ convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
 }
 
 static image::Image *
-getSurfaceImage(IDirect3DDevice7 *pDevice,
-                     IDirectDrawSurface7 *pSurface)
+getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
 {
     HRESULT hr;
 
@@ -163,8 +230,120 @@ getRenderTargetImage(IDirect3DDevice7 *pDevice) {
 void
 dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
 {
+    HRESULT hr;
+
     writer.beginMember("textures");
     writer.beginObject();
+
+    for (DWORD Stage = 0; Stage < 8; ++Stage) {
+        com_ptr<IDirectDrawSurface7> pTexture = nullptr;
+        hr = pDevice->GetTexture(Stage, &pTexture);
+        if (FAILED(hr)) {
+            continue;
+        }
+
+        if (!pTexture) {
+            continue;
+        }
+
+        DDSURFACEDESC2 desc;
+        desc.dwSize = sizeof(desc);
+        hr = pTexture->GetSurfaceDesc(&desc);
+        if (FAILED(hr)) {
+            continue;
+        }
+
+        bool isCube = desc.ddsCaps.dwCaps & DDSCAPS2_CUBEMAP;
+
+        DWORD NumFaces = isCube ? 6 : 1;
+        static const DWORD cubeFaceCaps[6] = {
+            DDSCAPS2_CUBEMAP_POSITIVEX,
+            DDSCAPS2_CUBEMAP_NEGATIVEX,
+            DDSCAPS2_CUBEMAP_POSITIVEY,
+            DDSCAPS2_CUBEMAP_NEGATIVEY,
+            DDSCAPS2_CUBEMAP_POSITIVEZ,
+            DDSCAPS2_CUBEMAP_NEGATIVEZ
+        };
+
+        // For each face (1 for normal textures)
+        for (DWORD Face = 0; Face < NumFaces; ++Face) {
+
+            // Start with base level of this face
+            LPDIRECTDRAWSURFACE7 pLevel = nullptr;
+
+            if (isCube) {
+                DDSCAPS2 capsFace = {};
+                capsFace.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_COMPLEX;
+                capsFace.dwCaps2 = cubeFaceCaps[Face];
+
+                hr = pTexture->GetAttachedSurface(&capsFace, &pLevel);
+                if (FAILED(hr) || !pLevel)
+                    continue;
+            } else {
+                pLevel = pTexture;
+                image::Image *image = getSurfaceImage(pDevice, pLevel);
+                if (image) {
+                    char label[128];
+                    _snprintf(label, sizeof label,
+                              "PS_RESOURCE_%lu_FACE_%lu",
+                               Stage, Face);
+
+                    writer.beginMember(label);
+                    StateWriter::ImageDesc imgDesc;
+                    imgDesc.depth = 1;
+                    imgDesc.format = image->formatName;
+                    writer.writeImage(image, imgDesc);
+                    writer.endMember();
+                    delete image;
+                }
+                pLevel->AddRef();
+            }
+
+            // Traverse mipmap chain
+            DWORD Level = 0;
+            while (pLevel) {
+                image::Image *image = getSurfaceImage(pDevice, pLevel);
+                if (image) {
+                    char label[128];
+
+                    if (isCube) {
+                        _snprintf(label, sizeof label,
+                                  "PS_RESOURCE_%lu_FACE_%lu_LEVEL_%lu",
+                                   Stage, Face, Level);
+                    } else {
+                        _snprintf(label, sizeof label,
+                                  "PS_RESOURCE_%lu_LEVEL_%lu",
+                                   Stage, Level);
+                    }
+
+                    writer.beginMember(label);
+                    StateWriter::ImageDesc imgDesc;
+                    imgDesc.depth = 1;
+                    imgDesc.format = image->formatName;
+                    writer.writeImage(image, imgDesc);
+                    writer.endMember();
+                    delete image;
+                }
+
+                // Get next mip level
+                DDSCAPS2 capsMips = {};
+                capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
+                capsMips.dwCaps2 = isCube ? cubeFaceCaps[Face] : 0;
+
+                LPDIRECTDRAWSURFACE7 pNext = nullptr;
+                hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
+
+                pLevel->Release();
+
+                if (FAILED(hr) || !pNext)
+                    break;
+
+                pLevel = pNext;
+                Level++;
+            }
+        }
+    }
+
     writer.endObject();
     writer.endMember(); // textures
 }
@@ -185,7 +364,10 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
         image = getSurfaceImage(pDevice, pRenderTarget);
         if (image) {
             writer.beginMember("RENDER_TARGET_0");
-            writer.writeImage(image);
+            StateWriter::ImageDesc imgDesc;
+            imgDesc.depth = 1;
+            imgDesc.format = image->formatName;
+            writer.writeImage(image, imgDesc);
             writer.endMember(); // RENDER_TARGET_*
             delete image;
         }
@@ -201,8 +383,59 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
             image = getSurfaceImage(pDevice, pDepthStencil);
             if (image) {
                 writer.beginMember("DEPTH_STENCIL");
-                writer.writeImage(image);
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
                 writer.endMember(); // DEPTH_STENCIL
+                delete image;
+            }
+        }
+
+        ddsCaps.dwCaps = DDSCAPS_FRONTBUFFER;
+        com_ptr<IDirectDrawSurface7> pFrontBuffer;
+        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pFrontBuffer);
+        if (SUCCEEDED(hr) && pFrontBuffer) {
+            image = getSurfaceImage(pDevice, pFrontBuffer);
+            if (image) {
+                writer.beginMember("FRONT_BUFFER");
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
+                writer.endMember();
+                delete image;
+            }
+        }
+
+        ddsCaps.dwCaps = DDSCAPS_BACKBUFFER | DDSCAPS_FLIP;
+        com_ptr<IDirectDrawSurface7> pBackBuffer;
+        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pBackBuffer);
+        if (SUCCEEDED(hr) && pBackBuffer) {
+            image = getSurfaceImage(pDevice, pBackBuffer);
+            if (image) {
+                writer.beginMember("BACK_BUFFER");
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
+                writer.endMember();
+                delete image;
+            }
+        }
+
+        ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+        com_ptr<IDirectDrawSurface7> pPrimarySurface;
+        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pPrimarySurface);
+        if (SUCCEEDED(hr) && pPrimarySurface) {
+            image = getSurfaceImage(pDevice, pPrimarySurface);
+            if (image) {
+                writer.beginMember("PRIMARY_SURFACE");
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
+                writer.endMember();
                 delete image;
             }
         }

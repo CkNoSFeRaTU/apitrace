@@ -425,6 +425,8 @@ ConvertImage(D3DFORMAT SrcFormat,
         dst += image->stride();
     }
 
+    image->formatName = formatToString(SrcFormat);
+
     return image;
 }
 
