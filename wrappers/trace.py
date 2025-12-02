@@ -329,6 +329,22 @@ class ValueSerializer(stdapi.Visitor, stdapi.ExpanderMixin):
     def visitPolymorphic(self, polymorphic, instance):
         if polymorphic.contextLess:
             print('    _write__%s(%s, %s);' % (polymorphic.tag, polymorphic.switchExpr, instance))
+        elif polymorphic.bitCmpMode:
+            switchExpr = self.expand(polymorphic.switchExpr)
+            operator = "if"
+            for cases, type in polymorphic.iterSwitch():
+                for case in cases:
+                    print('    %s ((%s & (%s)) == %s) {' % (operator, switchExpr, case, case))
+                caseInstance = instance
+                if type.expr is not None:
+                    caseInstance = 'static_cast<%s>(%s)' % (type, caseInstance)
+                self.visit(type, caseInstance)
+                print('    }')
+                operator = "else if"
+            if polymorphic.defaultType is None:
+                print(r'    else {')
+                print(r'        trace::localWriter.writeNull();')
+                print(r'    }')
         else:
             switchExpr = self.expand(polymorphic.switchExpr)
             print('    switch (%s) {' % switchExpr)
@@ -406,8 +422,8 @@ class ValueWrapper(stdapi.Traverser, stdapi.ExpanderMixin):
     
     def visitPolymorphic(self, type, instance):
         # XXX: There might be polymorphic values that need wrapping in the future
-        raise NotImplementedError
-
+        #raise NotImplementedError
+        pass
 
 class ValueUnwrapper(ValueWrapper):
     '''Reverse of ValueWrapper.'''
@@ -892,7 +908,7 @@ class Tracer:
         print('}')
         print()
 
-    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None, beforeCall = None):
+    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None, beforeCall = None, afterCall = None):
         assert not method.internal
 
         sigName = interface.name + '::' + method.sigName()
@@ -911,7 +927,7 @@ class Tracer:
         print('    trace::localWriter.endEnter();')
 
         if beforeCall:
-            print('%s' % beforeCall)
+            beforeCall()
         
         # If a resultOverride is specified, do not invoke the
         # method. Log the call and return the given result.
@@ -920,6 +936,9 @@ class Tracer:
             self.invokeMethod(interface, base, method)
         else:
             resultVariable = resultOverride
+
+        if afterCall:
+            afterCall()
 
         print('    trace::localWriter.beginLeave(_call);')
 
@@ -1002,7 +1021,7 @@ class Tracer:
     
     def emit_memcpy(self, ptr, size):
         print('    trace::fakeMemcpy(%s, %s);' % (ptr, size))
-    
+
     def fake_call(self, function, args):
         print('        {')
         print('            unsigned _fake_call = trace::localWriter.beginEnter(&_%s_sig, true);' % (function.name,))

@@ -27,6 +27,7 @@
 
 
 import sys
+import pprint
 
 from . import debug
 
@@ -340,13 +341,12 @@ class Struct(Type):
         return memberNames.index(name)
 
 
-def Union(kindExpr, kindTypes, contextLess=True):
+def Union(kindExpr, kindTypes, contextLess=True, bitCmpMode=False):
     switchTypes = []
     for kindCase, kindType, kindMemberName in kindTypes:
         switchType = Struct(None, [(kindType, kindMemberName)])
         switchTypes.append((kindCase, switchType))
-    return Polymorphic(kindExpr, switchTypes, contextLess=contextLess)
-
+    return Polymorphic(kindExpr, switchTypes, contextLess=contextLess, bitCmpMode=bitCmpMode)
 
 class Alias(Type):
 
@@ -566,7 +566,7 @@ def OpaqueBlob(type, size):
 
 class Polymorphic(Type):
 
-    def __init__(self, switchExpr, switchTypes, defaultType=None, contextLess=True):
+    def __init__(self, switchExpr, switchTypes, defaultType=None, contextLess=True, bitCmpMode=False):
         if defaultType is None:
             Type.__init__(self, None)
             contextLess = False
@@ -576,6 +576,7 @@ class Polymorphic(Type):
         self.switchTypes = switchTypes
         self.defaultType = defaultType
         self.contextLess = contextLess
+        self.bitCmpMode = bitCmpMode
 
     def visit(self, visitor, *args, **kwargs):
         return visitor.visitPolymorphic(self, *args, **kwargs)
@@ -589,7 +590,10 @@ class Polymorphic(Type):
             types.append(self.defaultType)
 
         for expr, type in self.switchTypes:
-            case = 'case %s' % expr
+            if self.bitCmpMode:
+                case = '%s' % expr
+            else:
+                case = 'case %s' % expr
             try:
                 i = types.index(type)
             except ValueError:
@@ -796,7 +800,7 @@ class Rebuilder(Visitor):
             defaultType = None
         else:
             defaultType = self.visit(polymorphic.defaultType)
-        return Polymorphic(switchExpr, switchTypes, defaultType, polymorphic.contextLess)
+        return Polymorphic(switchExpr, switchTypes, defaultType, polymorphic.contextLess, polymorphic.bitCmpMode)
 
 
 class MutableRebuilder(Rebuilder):
@@ -926,6 +930,11 @@ class ExpanderMixin:
 
         if self.__structs is not None:
             variables['self'] = '(%s)' % self.__structs[0]
+            if len(self.__structs) > 1:
+                if self.__structs[1] is None:
+                    variables['parent'] = ""
+                else:
+                    variables['parent'] = "(%s)." % "".join(self.__structs[1][0])
         if self.__indices is not None:
             variables['i'] = self.__indices[0]
 

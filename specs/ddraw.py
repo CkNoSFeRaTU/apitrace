@@ -109,6 +109,40 @@ DirectDrawSurfaceBltFxFlags = Flags(DWORD, [
     "DDBLTFX_ZBUFFERBASEDEST",
 ])
 
+DirectDrawBltFlags = Flags(DWORD, [
+    "DDBLT_ALPHADEST",
+    "DDBLT_ALPHADESTCONSTOVERRIDE",
+    "DDBLT_ALPHADESTNEG",
+    "DDBLT_ALPHADESTSURFACEOVERRIDE",
+    "DDBLT_ALPHAEDGEBLEND",
+    "DDBLT_ALPHASRC",
+    "DDBLT_ALPHASRCCONSTOVERRIDE",
+    "DDBLT_ALPHASRCNEG",
+    "DDBLT_ALPHASRCSURFACEOVERRIDE",
+    "DDBLT_ASYNC",
+    "DDBLT_COLORFILL",
+    "DDBLT_DDFX",
+    "DDBLT_DDROPS",
+    "DDBLT_KEYDEST",
+    "DDBLT_KEYDESTOVERRIDE",
+    "DDBLT_KEYSRC",
+    "DDBLT_KEYSRCOVERRIDE",
+    "DDBLT_ROP",
+    "DDBLT_ROTATIONANGLE",
+    "DDBLT_ZBUFFER",
+    "DDBLT_ZBUFFERDESTCONSTOVERRIDE",
+    "DDBLT_ZBUFFERDESTOVERRIDE",
+    "DDBLT_ZBUFFERSRCCONSTOVERRIDE",
+    "DDBLT_ZBUFFERSRCOVERRIDE",
+    "DDBLT_WAIT",
+    "DDBLT_DEPTHFILL",
+    "DDBLT_DONOTWAIT",
+    "DDBLT_PRESENTATION",
+    "DDBLT_LAST_PRESENTATION",
+    "DDBLT_EXTENDED_FLAGS",
+    "DDBLT_EXTENDED_LINEAR_CONTENT",
+])
+
 DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwSize"),
     (DirectDrawSurfaceBltFxFlags, "dwDDFX"),
@@ -121,36 +155,42 @@ DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwZBufferBaseDest"),
     (DWORD, "dwZDestConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwZDestConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSZBufferDest"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ZBUFFERDESTCONSTOVERRIDE", DWORD, "dwZDestConst"),
+        ("DDBLT_ZBUFFERDESTOVERRIDE", LPDIRECTDRAWSURFACE, "lpDDSZBufferDest"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwZSrcConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwZSrcConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSZBufferSrc"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ZBUFFERSRCCONSTOVERRIDE", DWORD, "dwZSrcConst"),
+        ("DDBLT_ZBUFFERSRCOVERRIDE", LPDIRECTDRAWSURFACE, "lpDDSZBufferSrc"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwAlphaEdgeBlendBitDepth"),
     (DWORD, "dwAlphaEdgeBlend"),
     (DWORD, "dwReserved"),
     (DWORD, "dwAlphaDestConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwAlphaDestConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ALPHADESTCONSTOVERRIDE", DWORD, "dwAlphaDestConst"),
+        ("DDBLT_ALPHADEST", LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwAlphaSrcConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ALPHASRCCONSTOVERRIDE", DWORD, "dwAlphaSrcConst"),
+        ("DDBLT_ALPHASRC", LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwFillColor"),
-    #(DWORD, "dwFillDepth"),
-    #(DWORD, "dwFillPixel"),
-    (LPDIRECTDRAWSURFACE, "lpDDSPattern"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_COLORFILL", DWORD, "dwFillColor"),
+        ("DDBLT_DEPTHFILL", DWORD, "dwFillDepth"),
+        # Same flag as for dwFillColor but used only for RGBA or RGBZ fills. Ignore for now
+        #("DDBLT_COLORFILL", DWORD, "dwFillPixel"),
+        ("DDBLT_DDROPS", LPDIRECTDRAWSURFACE, "lpDDSPattern"),
+    ], bitCmpMode=True), None),
 
     (DDCOLORKEY, "ddckDestColorkey"),
     (DDCOLORKEY, "ddckSrcColorkey"),
@@ -567,6 +607,7 @@ DirectDrawPixelFormatFlags = Flags(DWORD, [
     "DDPF_LUMINANCE",
     "DDPF_BUMPLUMINANCE",
     "DDPF_BUMPDUDV",
+    "DDPF_D3DFORMAT",
 ])
 
 DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
@@ -574,45 +615,59 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
     (DirectDrawPixelFormatFlags, "dwFlags"),
     (DWORD, "dwFourCC"),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwRGBBitCount"),
-    (DWORD, "dwYUVBitCount"),
-    (DWORD, "dwZBufferBitDepth"),
-    (DWORD, "dwAlphaBitDepth"),
-    (DWORD, "dwLuminanceBitCount"),
-    (DWORD, "dwBumpBitCount"),
-    (DWORD, "dwPrivateFormatBitCount"),
+    (Union("{self}.dwFlags", [
+        ("DDPF_RGB|DDPF_ALPHA", DWORD, "dwRGBBitCount"),
+        ("DDPF_YUV", DWORD, "dwYUVBitCount"),
+        ("DDPF_ZBUFFER", DWORD, "dwZBufferBitDepth"),
+        ("DDPF_ALPHAPIXELS", DWORD, "dwAlphaBitDepth"),
+        ("DDPF_LUMINANCE", DWORD, "dwLuminanceBitCount"),
+        ("DDPF_BUMPDUDV", DWORD, "dwBumpBitCount"),
+        # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
+        # So this flag field doesn't suppose to be coming from applications.
+        ("DDPF_D3DFORMAT", DWORD, "dwPrivateFormatBitCount"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwRBitMask"),
-    (DWORD, "dwYBitMask"),
-    (DWORD, "dwStencilBitDepth"),
-    (DWORD, "dwLuminanceBitMask"),
-    (DWORD, "dwBumpDuBitMask"),
-    (DWORD, "dwOperations"),
+    (Union("{self}.dwFlags", [
+        ("DDPF_RGB", DWORD, "dwRBitMask"),
+        ("DDPF_YUV", DWORD, "dwYBitMask"),
+        ("DDPF_STENCILBUFFER", DWORD, "dwStencilBitDepth"),
+        ("DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitMask"),
+        ("DDPF_BUMPLUMINANCE", DWORD, "dwLuminanceBitMask"),
+        ("DDPF_BUMPDUDV", DWORD, "dwBumpDuBitMask"),
+        # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
+        # So this flag field doesn't suppose to be coming from applications.
+        ("DDPF_D3DFORMAT", DWORD, "dwOperations"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwGBitMask"),
-    (DWORD, "dwUBitMask"),
-    (DWORD, "dwZBitMask"),
-    (DWORD, "dwBumpDvBitMask"),
-    (Struct(None, [
-        (WORD, "wFlipMSTypes"),
-        (WORD, "wBltMSTypes"),
-    ]), "MultiSampleCaps"),
+    (Union("{self}.dwFlags", [
+        ("DDPF_RGB", DWORD, "dwGBitMask"),
+        ("DDPF_YUV", DWORD, "dwUBitMask"),
+        ("DDPF_ZBUFFER", DWORD, "dwZBitMask"),
+        ("DDPF_BUMPDUDV", DWORD, "dwBumpDvBitMask"),
+        # MultiSampleCaps don't exist in 7.0a SDK. It is a later addition and it seems it is used by
+        # EnumTextureFormats or EnumZBufferFormats to report MSAA capabilities.
+        # Ignore it's existence, at least for now, as you can only determine by context when to use it
+        # and not by flags like in all other cases. And so it doesn't fit in Union type logic at all.
+        #Struct(None, [
+        #    (WORD, "wFlipMSTypes"),
+        #    (WORD, "wBltMSTypes"),
+        #]), "MultiSampleCaps"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwBBitMask"),
-    (DWORD, "dwVBitMask"),
-    (DWORD, "dwStencilBitMask"),
-    (DWORD, "dwBumpLuminanceBitMask"),
+    (Union("{self}.dwFlags", [
+        ("DDPF_RGB", DWORD, "dwBBitMask"),
+        ("DDPF_YUV", DWORD, "dwVBitMask"),
+        ("DDPF_STENCILBUFFER", DWORD, "dwStencilBitMask"),
+        ("DDPF_BUMPLUMINANCE", DWORD, "dwBumpLuminanceBitMask"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwRGBAlphaBitMask"),
-    (DWORD, "dwYUVAlphaBitMask"),
-    (DWORD, "dwLuminanceAlphaBitMask"),
-    (DWORD, "dwRGBZBitMask"),
-    (DWORD, "dwYUVZBitMask"),
+    (Union("{self}.dwFlags", [
+        ("DDPF_RGB|DDPF_ALPHAPIXELS", DWORD, "dwRGBAlphaBitMask"),
+        ("DDPF_YUV|DDPF_ALPHAPIXELS", DWORD, "dwYUVAlphaBitMask"),
+        ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceAlphaBitMask"),
+        ("DDPF_RGB|DDPF_ZBUFFER", DWORD, "dwRGBZBitMask"),
+        ("DDPF_YUV|DDPF_ZBUFFER", DWORD, "dwYUVZBitMask"),
+    ], bitCmpMode=True), None),
 ])
 LPDDPIXELFORMAT = Pointer(DDPIXELFORMAT)
 
@@ -623,15 +678,17 @@ DDOVERLAYFX = Struct("DDOVERLAYFX", [
     (DWORD, "dwReserved"),
     (DWORD, "dwAlphaDestConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwAlphaDestConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ALPHADESTCONSTOVERRIDE", DWORD, "dwAlphaDestConst"),
+        ("DDBLT_ALPHADEST", LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
-    # FIXME: Anonymous union
-    #(DWORD, "dwAlphaSrcConst"),
-    (LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
+    (Union("{parent}dwFlags", [
+        ("DDBLT_ALPHASRCCONSTOVERRIDE", DWORD, "dwAlphaSrcConst"),
+        ("DDBLT_ALPHASRC", LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
+    ], bitCmpMode=True), None),
 
     (DDCOLORKEY, "dckDestColorkey"),
     (DDCOLORKEY, "dckSrcColorkey"),
@@ -644,7 +701,7 @@ DDBLTBATCH = Struct("DDBLTBATCH", [
     (LPRECT, "lprDest"),
     (LPDIRECTDRAWSURFACE, "lpDDSSrc"),
     (LPRECT, "lprSrc"),
-    (DWORD, "dwFlags"),
+    (DirectDrawBltFlags, "dwFlags"),
     (LPDDBLTFX, "lpDDBltFx"),
 ])
 LPDDBLTBATCH = Pointer(DDBLTBATCH)
@@ -714,16 +771,18 @@ DDSURFACEDESC = Struct("DDSURFACEDESC", [
     (DWORD, "dwHeight"),
     (DWORD, "dwWidth"),
 
-    # FIXME: Anonymous union
-    (LONG, "lPitch"),
-    (DWORD, "dwLinearSize"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_LINEARSIZE", DWORD, "dwLinearSize"),
+        ("DDSD_PITCH", LONG, "lPitch"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwBackBufferCount"),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwMipMapCount"),
-    (DWORD, "dwZBufferBitDepth"),
-    (DWORD, "dwRefreshRate"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_MIPMAPCOUNT", DWORD, "dwMipMapCount"),
+        ("DDSD_ZBUFFERBITDEPTH", DWORD, "dwZBufferBitDepth"),
+        ("DDSD_REFRESHRATE", DWORD, "dwRefreshRate"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
@@ -743,34 +802,43 @@ DDSURFACEDESC2 = Struct("DDSURFACEDESC2", [
     (DWORD, "dwHeight"),
     (DWORD, "dwWidth"),
 
-    # FIXME: Anonymous union
-    (LONG, "lPitch"),
-    (DWORD, "dwLinearSize"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_PITCH", LONG, "lPitch"),
+        ("DDSD_LINEARSIZE", DWORD, "dwLinearSize"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwBackBufferCount"),
-    (DWORD, "dwDepth"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_BACKBUFFERCOUNT", DWORD, "dwBackBufferCount"),
+        # This field is technically dead weight in 7.0a SDK as flag for it only appeared in 8.0 SDK.
+        # But there are users of it. Were they compiled against 8.0+ SDK or there was an instance
+        # of this field abuse in combination with some vendor extensions?
+        ("DDSD_DEPTH", DWORD, "dwDepth"),
+    ], bitCmpMode=True), None),
 
-    # FIXME: Anonymous union
-    (DWORD, "dwMipMapCount"),
-    (DWORD, "dwRefreshRate"),
-    (DWORD, "dwSrcVBHandle"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_MIPMAPCOUNT", DWORD, "dwMipMapCount"),
+        ("DDSD_REFRESHRATE", DWORD, "dwRefreshRate"),
+        ("DDSD_SRCVBHANDLE", DWORD, "dwSrcVBHandle"),
+    ], bitCmpMode=True), None),
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
     (LinearPointer(Void, "_MappedSize"), "lpSurface"),
 
-    # FIXME: Anonymous union
-    #(DDCOLORKEY, "ddckCKDestOverlay"),
-    (DWORD, "dwEmptyFaceColor"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_CKDESTOVERLAY", DDCOLORKEY, "ddckCKDestOverlay"),
+        # This was never implemented and so never received a flag? Ignore it for now.
+        #("DDSD_EMPTYFACECOLOR", DWORD, "dwEmptyFaceColor"),
+    ], bitCmpMode=True), None),
 
     (DDCOLORKEY, "ddckCKDestBlt"),
     (DDCOLORKEY, "ddckCKSrcOverlay"),
     (DDCOLORKEY, "ddckCKSrcBlt"),
 
-    # FIXME: Anonymous union
-    (DDPIXELFORMAT, "ddpfPixelFormat"),
-    (DWORD, "dwFVF"),
+    (Union("{self}.dwFlags", [
+        ("DDSD_PIXELFORMAT", DDPIXELFORMAT, "ddpfPixelFormat"),
+        ("DDSD_FVF", DWORD, "dwFVF"),
+    ], bitCmpMode=True), None),
 
     (DDSCAPS2, "ddsCaps"),
     (DWORD, "dwTextureStage"),
@@ -1047,40 +1115,6 @@ DirectDrawSetCooperativeLevelFlags = Flags(DWORD, [
     "DDSCL_MULTITHREADED",
     "DDSCL_FPUSETUP",
     "DDSCL_FPUPRESERVE",
-])
-
-DirectDrawBltFlags = Flags(DWORD, [
-    "DDBLT_ALPHADEST",
-    "DDBLT_ALPHADESTCONSTOVERRIDE",
-    "DDBLT_ALPHADESTNEG",
-    "DDBLT_ALPHADESTSURFACEOVERRIDE",
-    "DDBLT_ALPHAEDGEBLEND",
-    "DDBLT_ALPHASRC",
-    "DDBLT_ALPHASRCCONSTOVERRIDE",
-    "DDBLT_ALPHASRCNEG",
-    "DDBLT_ALPHASRCSURFACEOVERRIDE",
-    "DDBLT_ASYNC",
-    "DDBLT_COLORFILL",
-    "DDBLT_DDFX",
-    "DDBLT_DDROPS",
-    "DDBLT_KEYDEST",
-    "DDBLT_KEYDESTOVERRIDE",
-    "DDBLT_KEYSRC",
-    "DDBLT_KEYSRCOVERRIDE",
-    "DDBLT_ROP",
-    "DDBLT_ROTATIONANGLE",
-    "DDBLT_ZBUFFER",
-    "DDBLT_ZBUFFERDESTCONSTOVERRIDE",
-    "DDBLT_ZBUFFERDESTOVERRIDE",
-    "DDBLT_ZBUFFERSRCCONSTOVERRIDE",
-    "DDBLT_ZBUFFERSRCOVERRIDE",
-    "DDBLT_WAIT",
-    "DDBLT_DEPTHFILL",
-    "DDBLT_DONOTWAIT",
-    "DDBLT_PRESENTATION",
-    "DDBLT_LAST_PRESENTATION",
-    "DDBLT_EXTENDED_FLAGS",
-    "DDBLT_EXTENDED_LINEAR_CONTENT",
 ])
 
 DirectDrawBltFastFlags = Flags(DWORD, [
@@ -1476,13 +1510,13 @@ IDirectDrawSurface.methods += [
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
     StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
-    StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
+    StdMethod(DDRESULT, "ReleaseDC", [In(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
     StdMethod(DDRESULT, "SetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),
     StdMethod(DDRESULT, "SetOverlayPosition", [(LONG, "lX"), (LONG, "lY")]),
     StdMethod(DDRESULT, "SetPalette", [(LPDIRECTDRAWPALETTE, "lpDDPalette")]),
-    StdMethod(DDRESULT, "Unlock", [(LPVOID, "lp")]),
+    StdMethod(DDRESULT, "Unlock", [(LinearPointer(Void), "lp")]),
     StdMethod(DDRESULT, "UpdateOverlay", [(LPRECT, "lpSrcRect"), (LPDIRECTDRAWSURFACE, "lpDDDestSurface"), (LPRECT, "lpDestRect"), (DirectDrawSurfaceOverlayFlags, "dwFlags"), (LPDDOVERLAYFX, "lpDDOverlayFx")]),
     StdMethod(DDRESULT, "UpdateOverlayDisplay", [(DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "UpdateOverlayZOrder", [(DirectDrawUpdateOverlayZOrderFlags, "dwFlags"), (LPDIRECTDRAWSURFACE, "lpDDSReference")]),
@@ -1512,13 +1546,13 @@ IDirectDrawSurface2.methods += [
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
     StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
-    StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
+    StdMethod(DDRESULT, "ReleaseDC", [In(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
     StdMethod(DDRESULT, "SetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),
     StdMethod(DDRESULT, "SetOverlayPosition", [(LONG, "lX"), (LONG, "lY")]),
     StdMethod(DDRESULT, "SetPalette", [(LPDIRECTDRAWPALETTE, "lpDDPalette")]),
-    StdMethod(DDRESULT, "Unlock", [(LPVOID, "lp")]),
+    StdMethod(DDRESULT, "Unlock", [(LinearPointer(VOID), "lp")]),
     StdMethod(DDRESULT, "UpdateOverlay", [(LPRECT, "lpSrcRect"), (LPDIRECTDRAWSURFACE2, "lpDDDestSurface"), (LPRECT, "lpDestRect"), (DirectDrawSurfaceOverlayFlags, "dwFlags"), (LPDDOVERLAYFX, "lpDDOverlayFx")]),
     StdMethod(DDRESULT, "UpdateOverlayDisplay", [(DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "UpdateOverlayZOrder", [(DirectDrawUpdateOverlayZOrderFlags, "dwFlags"), (LPDIRECTDRAWSURFACE2, "lpDDSReference")]),
@@ -1551,13 +1585,13 @@ IDirectDrawSurface3.methods += [
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
     StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
-    StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
+    StdMethod(DDRESULT, "ReleaseDC", [In(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
     StdMethod(DDRESULT, "SetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),
     StdMethod(DDRESULT, "SetOverlayPosition", [(LONG, "lX"), (LONG, "lY")]),
     StdMethod(DDRESULT, "SetPalette", [(LPDIRECTDRAWPALETTE, "lpDDPalette")]),
-    StdMethod(DDRESULT, "Unlock", [(LPVOID, "lp")]),
+    StdMethod(DDRESULT, "Unlock", [(LinearPointer(VOID), "lp")]),
     StdMethod(DDRESULT, "UpdateOverlay", [(LPRECT, "lpSrcRect"), (LPDIRECTDRAWSURFACE3, "lpDDDestSurface"), (LPRECT, "lpDestRect"), (DirectDrawSurfaceOverlayFlags, "dwFlags"), (LPDDOVERLAYFX, "lpDDOverlayFx")]),
     StdMethod(DDRESULT, "UpdateOverlayDisplay", [(DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "UpdateOverlayZOrder", [(DirectDrawUpdateOverlayZOrderFlags, "dwFlags"), (LPDIRECTDRAWSURFACE3, "lpDDSReference")]),
@@ -1591,7 +1625,7 @@ IDirectDrawSurface4.methods += [
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", []),
     StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
-    StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
+    StdMethod(DDRESULT, "ReleaseDC", [In(HDC, "hDC")], sideeffects=False),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
     StdMethod(DDRESULT, "SetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),
@@ -1627,7 +1661,7 @@ IDirectDrawSurface7.methods += [
     StdMethod(DDRESULT, "GetCaps", [Out(LPDDSCAPS2, "lpDDSCaps")]),
     StdMethod(DDRESULT, "GetClipper", [Out(Pointer(LPDIRECTDRAWCLIPPER), "lplpDDClipper")]),
     StdMethod(DDRESULT, "GetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),
-    StdMethod(DDRESULT, "GetDC", [Out(Pointer(HDC), "phDC")], sideeffects=False),
+    StdMethod(DDRESULT, "GetDC", [Out(Pointer(HDC), "phDC")]),
     StdMethod(DDRESULT, "GetFlipStatus", [(DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "GetOverlayPosition", [Out(LPLONG, "lplX"), Out(LPLONG, "lplY")], sideeffects=False),
     StdMethod(DDRESULT, "GetPalette", [Out(Pointer(LPDIRECTDRAWPALETTE), "lplpDDPalette")]),
@@ -1636,7 +1670,7 @@ IDirectDrawSurface7.methods += [
     StdMethod(DDRESULT, "Initialize", [(LPDIRECTDRAW, "lpDD"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc")]),
     StdMethod(DDRESULT, "IsLost", [], sideeffects=False),
     StdMethod(DDRESULT, "Lock", [In(LPRECT, "lpDestRect"), InOut(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), In(DirectDrawSurfaceLockFlags, "dwFlags"), In(HANDLE, "hEvent")]),
-    StdMethod(DDRESULT, "ReleaseDC", [(HDC, "hDC")], sideeffects=False),
+    StdMethod(DDRESULT, "ReleaseDC", [In(HDC, "hDC")]),
     StdMethod(DDRESULT, "Restore", []),
     StdMethod(DDRESULT, "SetClipper", [(LPDIRECTDRAWCLIPPER, "lpDDClipper")]),
     StdMethod(DDRESULT, "SetColorKey", [(DirectDrawSurfaceSetGetColorKeyFlags, "dwFlags"), Out(LPDDCOLORKEY, "lpDDColorKey")]),

@@ -39,14 +39,11 @@ class D3DRetracer(Retracer):
     def retraceApi(self, api):
         print('// Swizzling mapping for lock addresses')
         print('static std::map<void *, void *> _maps;')
-        #print('typedef std::pair<void *, UINT> MappingKey;')
-        #print('static std::map<MappingKey, void *> _maps;')
         print()
         # TODO: Keep a table of windows
         print('static HWND g_hWnd{0};')
         print('static int g_width = 0, g_height = 0;');
         print('static bool g_clipper = false;')
-        print('static bool g_windowed = false;')
         print()
 
         Retracer.retraceApi(self, api)
@@ -89,7 +86,6 @@ class D3DRetracer(Retracer):
                 print(r'    }')
                 print(r'    %s = g_hWnd;' % hWndArg.name)
                 print(r'    _HWND_map[static_cast<HWND>((call.arg(1)).toPointer())] = g_hWnd;')
-                print(r'    g_windowed = !(dwFlags & DDSCL_FULLSCREEN);')
             else:
                 print(r'    %s = g_hWnd;' % hWndArg.name)
 
@@ -104,13 +100,23 @@ class D3DRetracer(Retracer):
         # Hack to cooperate with clipper.
         if interface.name.startswith("IDirectDrawSurface"):
             if method.name == 'Blt':
-                print(r'    RECT cRect;')
-                print(r'    if (g_windowed && g_clipper && lpDestRect && GetWindowRect(g_hWnd, &cRect)) {')
-                print(r'        (*lpDestRect).left += cRect.left;')
-                print(r'        (*lpDestRect).right += cRect.left;')
-                print(r'        (*lpDestRect).top += cRect.top;')
-                print(r'        (*lpDestRect).bottom += cRect.top;')
+                print(r'    if (ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE) && lpDestRect) {')
+                print(r'        size_t n_width = (*lpDestRect).right - (*lpDestRect).left;')
+                print(r'        size_t n_height = (*lpDestRect).bottom - (*lpDestRect).top;')
+                print(r'        if (g_clipper && n_width != g_width || n_height != g_height) {')
+                print(r'            g_width = n_width;')
+                print(r'            g_height = n_height;')
+                print(r'            d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
+                print(r'        }')
                 print(r'    }')
+                print(r'    POINT cPt{0, 0};')
+                print(r'    if (g_clipper && lpDestRect && ClientToScreen(g_hWnd, &cPt)) {')
+                print(r'        (*lpDestRect).left += cPt.x;')
+                print(r'        (*lpDestRect).right += cPt.x;')
+                print(r'        (*lpDestRect).top += cPt.y;')
+                print(r'        (*lpDestRect).bottom += cPt.y;')
+                print(r'    }')
+
             if method.name == 'SetClipper':
                 if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                     print(r'    DDSCAPS2 ddsCaps;')
@@ -127,52 +133,53 @@ class D3DRetracer(Retracer):
             print(r'        exit(1);')
             print(r'    }')
 
-        # Hack to set window size according to primary surfaces sizes with some slack just in case there were menu panels.
+        # Hack to set window size according to primary surfaces sizes.
         if interface.name.startswith('IDirectDraw'):
             if method.name in ('SetDisplayMode'):
                 print(r'    g_height = dwHeight;')
                 print(r'    g_width = dwWidth;')
-                print(r'    if (g_windowed)')
-                print(r'        SetWindowPos(g_hWnd, NULL, 0, 0, g_width, g_height, 0);')
+                print(r'    if (g_clipper)')
+                print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
             if method.name in ('CreateSurface'):
-                print(r'    if (g_windowed && g_clipper && lpDDSurfaceDesc) {')
+                print(r'    if (g_clipper && lpDDSurfaceDesc) {')
                 print(r'        if ((*lpDDSurfaceDesc).dwHeight > 0 && (*lpDDSurfaceDesc).dwWidth > 0 ')
                 print(r'            && ((*lpDDSurfaceDesc).ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
-                print(r'            g_height = (*lpDDSurfaceDesc).dwHeight + 64;')
-                print(r'            g_width = (*lpDDSurfaceDesc).dwWidth + 16;')
-                print(r'            SetWindowPos(g_hWnd, NULL, 0, 0, g_width, g_height, 0);')
+                print(r'            g_height = (*lpDDSurfaceDesc).dwHeight;')
+                print(r'            g_width = (*lpDDSurfaceDesc).dwWidth;')
+                print(r'            d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
                 print(r'        }')
                 print(r'    }')
 
-        if (interface.name.startswith('IDirectDrawSurface') or interface.name.startswith("IDirect3DVertexBuffer")):
-            # FIXME: DrawSurface GetDC/ReleaseDC should be handled as well
-            if method.name in ('Lock'):
-                print('    VOID *_pbData = nullptr;')
-                print('    size_t _MappedSize = 0;')
+        if method.name in ('Lock'):
+            print('    VOID *_pbData = nullptr;')
+            print('    size_t _MappedSize = 0;')
+            print('    if (_maps[_this]) { os::log("already locked?!\\n"); }')
 
-                if interface.name.startswith("IDirect3DVertexBuffer"):
-                    print('    if (true) {')
-                else:
-                    print('    if (!(dwFlags & DDLOCK_READONLY)) {')
-                if interface.name.startswith("IDirect3DVertexBuffer"):
-                    print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
-                else:
-                    print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
-                print('    }')
-                print('    if (_MappedSize) {')
-                print('        _maps[_this] = _pbData;')
-                self.checkPitchMismatch(method);
-                print('    } else {')
-                print('        return;')
-                print('    }')
+            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
+                print('    if (!(dwFlags & DDLOCK_READONLY)) {')
+            else:
+                print('    if (true) {')
+            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
+                print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
+            elif interface.name.startswith("IDirect3DVertexBuffer"):
+                print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
+            else:
+                print('        _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()))
+            print('    }')
+            print('    if (_MappedSize) {')
+            print('        _maps[_this] = _pbData;')
+            self.checkPitchMismatch(method);
+            print('    } else {')
+            print('        return;')
+            print('    }')
 
-            if method.name in ('Unlock'):
-                print('    VOID *_pbData = 0;')
-                print('    _pbData = _maps[_this];')
-                print('    if (_pbData) {')
-                print('        retrace::delRegionByPointer(_pbData);')
-                print('        _maps[_this] = 0;')
-                print('    }')
+        if method.name in ('Unlock'):
+            print('    VOID *_pbData = 0;')
+            print('    _pbData = _maps[_this];')
+            print('    if (_pbData) {')
+            print('        retrace::delRegionByPointer(_pbData);')
+            print('        _maps[_this] = 0;')
+            print('    }')
 
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):
         # Handle DDCREATE_* flags

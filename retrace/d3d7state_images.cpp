@@ -188,22 +188,22 @@ getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
 {
     HRESULT hr;
 
-    DDSURFACEDESC2 Desc;
-    ZeroMemory(&Desc, sizeof Desc);
-    Desc.dwSize = sizeof Desc;
+    DDSURFACEDESC2 desc;
+    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    desc.dwSize = sizeof desc;
 
-    hr = pSurface->Lock(NULL, &Desc, DDLOCK_WAIT | DDLOCK_READONLY | DDLOCK_SURFACEMEMORYPTR | DDLOCK_NOSYSLOCK, NULL);
+    hr = pSurface->Lock(NULL, &desc, DDLOCK_WAIT | DDLOCK_READONLY | DDLOCK_SURFACEMEMORYPTR | DDLOCK_NOSYSLOCK, NULL);
     if (FAILED(hr)) {
         std::cerr << "warning: IDirectDrawSurface7::Lock failed\n";
         return NULL;
     }
 
     image::Image *image = NULL;
-    D3DFORMAT Format = convertFormat(Desc.ddpfPixelFormat);
+    D3DFORMAT Format = convertFormat(desc.ddpfPixelFormat);
     if (Format == D3DFMT_UNKNOWN) {
         std::cerr << "warning: unsupported DDPIXELFORMAT\n";
     } else {
-        image = ConvertImage(Format, Desc.lpSurface, Desc.lPitch, Desc.dwWidth, Desc.dwHeight);
+        image = ConvertImage(Format, desc.lpSurface, desc.lPitch, desc.dwWidth, desc.dwHeight);
     }
 
     pSurface->Unlock(NULL);
@@ -247,6 +247,7 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
         }
 
         DDSURFACEDESC2 desc;
+        ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
         desc.dwSize = sizeof(desc);
         hr = pTexture->GetSurfaceDesc(&desc);
         if (FAILED(hr)) {

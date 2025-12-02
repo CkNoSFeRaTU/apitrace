@@ -246,25 +246,38 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
 
     def visitPolymorphic(self, polymorphic, lvalue, rvalue):
         if polymorphic.defaultType is None:
-            switchExpr = self.expand(polymorphic.switchExpr)
-            print(r'    switch (%s) {' % switchExpr)
-            for cases, type in polymorphic.iterSwitch():
-                for case in cases:
-                    print(r'    %s:' % case)
-                caseLvalue = lvalue
-                if type.expr is not None:
-                    caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
-                print(r'        {')
-                try:
+            if polymorphic.bitCmpMode:
+                switchExpr = self.expand(polymorphic.switchExpr)
+                operator = "if"
+                for cases, type in polymorphic.iterSwitch():
+                    for case in cases:
+                        print('    %s ((%s & (%s)) == %s) {' % (operator, switchExpr, case, case))
+                    caseLvalue = lvalue
+                    if type.expr is not None:
+                        caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
                     self.visit(type, caseLvalue, rvalue)
-                finally:
-                    print(r'        }')
-                print(r'        break;')
-            if polymorphic.defaultType is None:
-                print(r'    default:')
-                print(r'        retrace::warning(call) << "unexpected polymorphic case" << %s << "\n";' % (switchExpr,))
-                print(r'        break;')
-            print(r'    }')
+                    print('    }')
+                    operator = "else if"
+            else:
+                switchExpr = self.expand(polymorphic.switchExpr)
+                print(r'    switch (%s) {' % switchExpr)
+                for cases, type in polymorphic.iterSwitch():
+                    for case in cases:
+                        print(r'    %s:' % case)
+                    caseLvalue = lvalue
+                    if type.expr is not None:
+                        caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
+                    print(r'        {')
+                    try:
+                        self.visit(type, caseLvalue, rvalue)
+                    finally:
+                        print(r'        }')
+                    print(r'        break;')
+                if polymorphic.defaultType is None:
+                    print(r'    default:')
+                    print(r'        retrace::warning(call) << "unexpected polymorphic case" << %s << "\n";' % (switchExpr,))
+                    print(r'        break;')
+                print(r'    }')
         else:
             self.visit(polymorphic.defaultType, lvalue, rvalue)
     
@@ -386,8 +399,8 @@ class SwizzledValueRegistrator(stdapi.Visitor, stdapi.ExpanderMixin):
             self.visitMember(member, lvalue, '*%s->members[%s]' % (tmp, i))
     
     def visitPolymorphic(self, polymorphic, lvalue, rvalue):
-        assert polymorphic.defaultType is not None
-        self.visit(polymorphic.defaultType, lvalue, rvalue)
+        if polymorphic.defaultType is not None:
+            self.visit(polymorphic.defaultType, lvalue, rvalue)
     
     def visitOpaque(self, opaque, lvalue, rvalue):
         pass
@@ -626,7 +639,17 @@ class Retracer:
                 struct = outArg.type.type
                 for memberIndex in range(len(struct.members)):
                     memberType, memberName = struct.members[memberIndex]
-                    if memberName.endswith('Pitch'):
+                    if memberName is None and isinstance(memberType, stdapi.Polymorphic):
+                        for cases, polType in memberType.iterSwitch():
+                            if isinstance(polType, stdapi.Struct):
+                                for polIndex in range(len(polType.members)):
+                                    polType, polName = polType.members[polIndex]
+                                    if polName.endswith('Pitch'):
+                                        print(r'                if (%s->%s) {' % (outArg.name, polName))
+                                        print(r'                    const trace::Struct *_struct2 = _struct->members[%u]->toStruct();' % memberIndex)
+                                        print(r'                    retrace::checkMismatch(call, "%s", _struct2->members[%u], %s->%s);' % (polName, polIndex, outArg.name, polName))
+                                        print(r'                }')
+                    elif memberName.endswith('Pitch'):
                         print(r'                if (%s->%s) {' % (outArg.name, memberName))
                         print(r'                    retrace::checkMismatch(call, "%s", _struct->members[%u], %s->%s);' % (memberName, memberIndex, outArg.name, memberName))
                         print(r'                }')

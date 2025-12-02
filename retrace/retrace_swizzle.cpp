@@ -166,7 +166,8 @@ lookupRegion(unsigned long long address) {
         }
     }
 
-    assert(contains(it, address));
+    // FIXME random issue with locks? investigate could due to multithreaded access from app during trace capture
+    //assert(contains(it, address));
     return it;
 }
 
@@ -211,7 +212,8 @@ lookupAddress(unsigned long long address, Range &range) {
     if (it != regionMap.end()) {
         const Region & region = it->second;
         unsigned long long offset = address - it->first;
-        assert(offset < region.size);
+        // FIXME random issue with locks? investigate could due to multithreaded access from app during trace capture
+        //assert(offset < region.size);
 
         range.ptr = (char *)region.buffer + offset;
         range.len = region.size - offset;

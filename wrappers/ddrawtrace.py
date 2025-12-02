@@ -43,15 +43,13 @@ class DDrawTracer(DllTracer):
         variables = DllTracer.enumWrapperInterfaceVariables(self, interface)
 
         # Add additional members to track locks
-        if (interface.name.startswith("IDirectDrawSurface") or interface.name.startswith("IDirect3DVertexBuffer")) \
-        and interface.getMethodByName('Lock') is not None:
+        if interface.getMethodByName('Lock') is not None:
             variables += [
                 ('size_t', '_MappedSize', '0'),
                 ('VOID *', 'm_pbData', '0'),
             ]
 
         return variables
-
     def implementWrapperInterfaceMethodBody(self, interface, base, method):
         beforeCall = None
 
@@ -62,7 +60,15 @@ class DDrawTracer(DllTracer):
                 print(r'    if (!g_hWnd) {')
                 print(r'        g_hWnd = hWnd;')
                 print(r'    }')
-                print(r'    g_windowed = !(dwFlags & DDSCL_FULLSCREEN);')
+                print(r'    g_windowed = !(dwFlags & (DDSCL_FULLSCREEN|DDSCL_EXCLUSIVE));')
+
+        def restoreState():
+            print('    if (g_windowed && g_clipper && lpDestRect) {')
+            print('        (*lpDestRect).left += cRect.left;')
+            print('        (*lpDestRect).right += cRect.left;')
+            print('        (*lpDestRect).top += cRect.top;')
+            print('        (*lpDestRect).bottom += cRect.top;')
+            print('    }')
 
         if interface.name.startswith("IDirectDrawSurface"):
             if method.name == 'Blt':
@@ -75,13 +81,7 @@ class DDrawTracer(DllTracer):
                 print('        (*lpDestRect).bottom -= cRect.top;')
                 print('    }')
                 # Restore to original state before the call
-                beforeCall = \
-                '    if (g_windowed && g_clipper && lpDestRect) {\n' \
-                '        (*lpDestRect).left += cRect.left;\n' \
-                '        (*lpDestRect).right += cRect.left;\n' \
-                '        (*lpDestRect).top += cRect.top;\n' \
-                '        (*lpDestRect).bottom += cRect.top;\n' \
-                '    }'
+                beforeCall = restoreState
             elif method.name == 'SetClipper':
                 if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                     print(r'    DDSCAPS2 ddsCaps;')
@@ -91,26 +91,30 @@ class DDrawTracer(DllTracer):
                 print(r'        g_clipper = true;')
                 print(r'    }')
 
-        if (interface.name.startswith("IDirectDrawSurface") or interface.name.startswith("IDirect3DVertexBuffer")) \
-        and method.name in ('Unlock'):
+        if method.name == 'Unlock':
             print('    if (_MappedSize && m_pbData) {')
-            self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
+            if method.name == 'Unlock':
+                self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
             print('    }')
 
         DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, beforeCall = beforeCall)
 
-        if (interface.name.startswith("IDirectDrawSurface") or interface.name.startswith("IDirect3DVertexBuffer")):
-            if method.name in ('Lock'):
-                # FIXME: handle recursive locks
+        if method.name == 'Lock':
+            # FIXME: handle recursive locks
+            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
                 print('    if (SUCCEEDED(_result) && !(dwFlags & DDLOCK_READONLY)) {')
-                if interface.name.startswith("IDirect3DVertexBuffer"):
-                    print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
-                else:
-                    print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
-                print('    } else {')
-                print('        m_pbData = nullptr;')
-                print('        _MappedSize = 0;')
-                print('    }')
+            else:
+                print('    if (SUCCEEDED(_result)) {')
+            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
+                print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
+            elif interface.name.startswith("IDirect3DVertexBuffer"):
+                print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
+            else:
+                print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()))
+            print('    } else {')
+            print('        m_pbData = nullptr;')
+            print('        _MappedSize = 0;')
+            print('    }')
 
 if __name__ == '__main__':
     print('#define INITGUID')
@@ -126,5 +130,16 @@ if __name__ == '__main__':
 
     api = API()
     api.addModule(ddraw)
+
+    fake_function_names = [
+        'GetCurrentObject',
+    ]
+
+    # Declare helper functions to emit fake function calls into the trace
+    for function in api.getAllFunctions():
+        if function.name in fake_function_names:
+            print(function.prototype('_fake_' + function.name) + ';')
+        print()
+
     tracer = DDrawTracer()
     tracer.traceApi(api)

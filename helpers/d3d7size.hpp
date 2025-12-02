@@ -115,6 +115,28 @@ _getVertexSize(DWORD dwFVF) {
     return size;
 }
 
+static inline size_t
+_getStridedVertexSize(D3DDP_PTRSTRIDE *stride, D3DDRAWPRIMITIVESTRIDEDDATA *data, DWORD dwVertexType) {
+    size_t total = 0;
+
+    if (stride == &data->position && (dwVertexType & D3DFVF_POSITION_MASK) && data->position.lpvData)
+        total += data->position.dwStride;
+    if (stride == &data->normal && (dwVertexType & D3DFVF_NORMAL) && data->normal.lpvData)
+        total += data->normal.dwStride;
+    if (stride == &data->diffuse && (dwVertexType & D3DFVF_DIFFUSE) && data->diffuse.lpvData)
+        total += data->diffuse.dwStride;
+    if (stride == &data->specular && (dwVertexType & D3DFVF_SPECULAR) && data->specular.lpvData)
+        total += data->specular.dwStride;
+
+    DWORD dwNumTextures = (dwVertexType & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+    for (DWORD i = 0; i < dwNumTextures; i++) {
+        if (stride == &data->textureCoords[i] && data->textureCoords[i].lpvData)
+            total += data->textureCoords[i].dwStride;
+    }
+
+    return total;
+}
+
 static inline void
 _getFormatSize(LPDDPIXELFORMAT fmt, size_t & BlockSize, UINT & BlockWidth, UINT & BlockHeight) {
     BlockSize = 0;
@@ -205,231 +227,32 @@ _getLockSize(LPDDPIXELFORMAT Format, bool Partial, UINT Width, UINT Height, INT 
     return size;
 }
 
-// FIXME: remove ExtractComponent and SaveSurfaceToBMP debug functions eventually
-static inline uint8_t ExtractComponent(DWORD pixel, DWORD mask)
-{
-    if (mask == 0) return 0;
-    DWORD m = mask;
-
-    int shift = 0;
-    while ((m & 1) == 0) {
-        m >>= 1;
-        shift++;
-    }
-
-    // unshifted value
-    DWORD raw = (pixel & mask) >> shift;
-    // number of mask bits
-    int bits = 0;
-
-    while (m) {
-        m >>= 1;
-        bits++;
-    }
-
-    // scale to 8-bit
-    if (bits == 0)
-        return 0;
-
-    return (uint8_t)((raw * 255) / ((1 << bits) - 1));
-}
-
-bool SaveSurfaceToBMP(std::string filename, IDirectDrawSurface7* pSurface, RECT* pRect)
-{
-#define BMP_32
-#define BMP_BOTTOM_UP
-#define SURFACE_IS_LOCKED
-    //#define SURFACE_UNLOCK
-
-    if (!pSurface)
-        return false;
-
-#ifdef SURFACE_IS_LOCKED
-    if (FAILED(pSurface->Unlock(pRect)))
-        return false;
-#endif
-
-    DDSURFACEDESC2 desc;
-    desc.dwSize = sizeof(desc);
-    HRESULT hr = pSurface->GetSurfaceDesc(&desc);
-    if (FAILED(hr))
-        return false;
-
-    if (FAILED(pSurface->Lock(nullptr, &desc, DDLOCK_WAIT, nullptr)))
-        return false;
-
-    int width = desc.dwWidth;
-    int height = desc.dwHeight;
-    int left = 0;
-    int right = width;
-    int top = 0;
-    int bottom = height;
-    if (pRect) {
-        left = pRect->left;
-        right = pRect->right;
-        top = pRect->top;
-        bottom = pRect->bottom;
-        width = pRect->right - pRect->left;
-        height = pRect->bottom - pRect->top;
-    }
-    int pitch = desc.lPitch;
-    BYTE* pixels = (BYTE*)desc.lpSurface;
-
-    const DDPIXELFORMAT& pf = desc.ddpfPixelFormat;
-
-    int bitsPerPixel = pf.dwRGBBitCount;
-
-    DWORD rmask = pf.dwRBitMask;
-    DWORD gmask = pf.dwGBitMask;
-    DWORD bmask = pf.dwBBitMask;
-    DWORD amask = pf.dwRGBAlphaBitMask;
-
-    // prepare BMP headers
-    BITMAPFILEHEADER bmf = { 0 };
-    BITMAPINFOHEADER bih = { 0 };
-
-    bih.biSize = sizeof(BITMAPINFOHEADER);
-    bih.biWidth = width;
-#ifdef BMP_BOTTOM_UP
-    bih.biHeight = height;
-#else
-    bih.biHeight = -height;
-#endif
-    bih.biPlanes = 1;
-#ifdef BMP_32
-    bih.biBitCount = 32;
-#else
-    bih.biBitCount = 24;
-#endif
-    bih.biCompression = BI_RGB;
-
-#ifdef BMP_32
-    // BMP row stride for 32bit (4-byte aligned)
-    int rowSize = ((width * 4 + 4) & ~4);
-#else
-    // BMP row stride for 24bit (4-byte aligned)
-    int rowSize = ((width * 3 + 3) & ~3);
-#endif
-    int imageSize = rowSize * height;
-
-    // "BM" magic bytes
-    bmf.bfType = 0x4D42;
-    bmf.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-    bmf.bfSize = bmf.bfOffBits + imageSize;
-
-    FILE* f = fopen(filename.c_str(), "wb");
-    if (!f) {
-#ifdef SURFACE_UNLOCK
-        pSurface->Unlock(nullptr);
-#endif
-        return false;
-    }
-
-    // write BMP headers
-    fwrite(&bmf, sizeof(bmf), 1, f);
-    fwrite(&bih, sizeof(bih), 1, f);
-
-    // convert surface's pixel data
-    uint8_t* rowBuf = new uint8_t[rowSize];
-    for (int y = top; y < height; y++)
-    {
-        uint8_t* dst = rowBuf;
-#ifdef BMP_BOTTOM_UP
-        uint8_t* src = pixels + (height - 1 - y) * pitch;
-#else
-        uint8_t* src = pixels + y * pitch;
-#endif
-        for (int x = left; x < width; x++)
-        {
-            DWORD pixel = 0;
-
-            switch (bitsPerPixel)
-            {
-            case 8:
-                pixel = src[x];
-                break;
-
-            case 16:
-                pixel = ((uint16_t*)src)[x];
-                break;
-
-            case 24:
-            {
-                uint8_t* p = src + x * 3;
-                pixel = p[0] | (p[1] << 8) | (p[2] << 16);
-                break;
-            }
-
-            case 32:
-                pixel = ((uint32_t*)src)[x];
-                break;
-
-            default:
-                // unsupported surface format
-#ifdef SURFACE_UNLOCK
-                pSurface->Unlock(nullptr);
-#endif
-                delete[] rowBuf;
-                fclose(f);
-                return false;
-            }
-
-            // extract components from masks
-            uint8_t r = ExtractComponent(pixel, rmask);
-            uint8_t g = ExtractComponent(pixel, gmask);
-            uint8_t b = ExtractComponent(pixel, bmask);
-#ifdef BMP_32
-            uint8_t a = ExtractComponent(pixel, amask);
-#endif
-
-            // BMP expects BGR(A)
-            * dst++ = b;
-            *dst++ = g;
-            *dst++ = r;
-#ifdef BMP_32
-            * dst++ = a;
-#endif
-        }
-
-        fwrite(rowBuf, rowSize, 1, f);
-    }
-
-    delete[] rowBuf;
-    fclose(f);
-
-#ifdef SURFACE_UNLOCK
-    pSurface->Unlock(nullptr);
-#endif
-
-    return true;
-}
-
 static inline void
-_getMapInfo(IDirectDrawSurface* surface, RECT * pRect, DDSURFACEDESC * pDesc,
-             void * & pLockedData, size_t & MappedSize) {
+_getMapInfo(IDirectDrawSurface* pSurface, RECT* pRect, DDSURFACEDESC* pDesc,
+    void*& pLockedData, size_t& MappedSize) {
     MappedSize = 0;
     pLockedData = nullptr;
-    return;
 
     UINT Width;
     UINT Height;
     if (pRect) {
-        Width  = pRect->right  - pRect->left;
+        Width = pRect->right - pRect->left;
         Height = pRect->bottom - pRect->top;
-    } else {
-        Width  = pDesc->dwWidth;
+    }
+    else {
+        Width = pDesc->dwWidth;
         Height = pDesc->dwHeight;
     }
 
+    pLockedData = pDesc->lpSurface;
     MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
 }
 
 static inline void
-_getMapInfo(IDirectDrawSurface2* surface, RECT * pRect, DDSURFACEDESC * pDesc,
+_getMapInfo(IDirectDrawSurface2* pSurface, RECT * pRect, DDSURFACEDESC * pDesc,
              void * & pLockedData, size_t & MappedSize) {
     MappedSize = 0;
     pLockedData = nullptr;
-    return;
 
     UINT Width;
     UINT Height;
@@ -441,15 +264,15 @@ _getMapInfo(IDirectDrawSurface2* surface, RECT * pRect, DDSURFACEDESC * pDesc,
         Height = pDesc->dwHeight;
     }
 
+    pLockedData = pDesc->lpSurface;
     MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
 }
 
 static inline void
-_getMapInfo(IDirectDrawSurface3* surface, RECT * pRect, DDSURFACEDESC * pDesc,
+_getMapInfo(IDirectDrawSurface3* pSurface, RECT * pRect, DDSURFACEDESC * pDesc,
              void * & pLockedData, size_t & MappedSize) {
     MappedSize = 0;
     pLockedData = nullptr;
-    return;
 
     UINT Width;
     UINT Height;
@@ -461,15 +284,15 @@ _getMapInfo(IDirectDrawSurface3* surface, RECT * pRect, DDSURFACEDESC * pDesc,
         Height = pDesc->dwHeight;
     }
 
+    pLockedData = pDesc->lpSurface;
     MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
 }
 
 static inline void
-_getMapInfo(IDirectDrawSurface4* surface, RECT * pRect, DDSURFACEDESC2 * pDesc,
+_getMapInfo(IDirectDrawSurface4* pSurface, RECT * pRect, DDSURFACEDESC2 * pDesc,
              void * & pLockedData, size_t & MappedSize) {
     MappedSize = 0;
     pLockedData = nullptr;
-    return;
 
     UINT Width;
     UINT Height;
@@ -481,6 +304,7 @@ _getMapInfo(IDirectDrawSurface4* surface, RECT * pRect, DDSURFACEDESC2 * pDesc,
         Height = pDesc->dwHeight;
     }
 
+    pLockedData = pDesc->lpSurface;
     MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
 }
 
@@ -500,73 +324,52 @@ _getMapInfo(IDirectDrawSurface7* pSurface, RECT * pRect, DDSURFACEDESC2 * pDesc,
         Height = pDesc->dwHeight;
     }
 
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
     pLockedData = pDesc->lpSurface;
-
-//#define DEBUG_SAVEBMP
-#ifdef DEBUG_SAVEBMP
-    static int picIndex = 0;
-    picIndex++;
-    size_t nZero = 4;
-    std::string sNumber = std::to_string(picIndex);
-    std::string filename = "image_" + std::string(nZero - std::min(nZero, sNumber.length()), '0') + sNumber + ".bmp";
-    SaveSurfaceToBMP(filename, pSurface, pRect);
-#endif
-}
-
-static inline void
-_getMapInfo(IDirectDrawSurface7* pSurface, HDC* hDC,
-    void*& pLockedData, size_t& MappedSize) {
-    MappedSize = 0;
-
-    DDSURFACEDESC2 desc;
-    desc.dwSize = sizeof(desc);
-    HRESULT hr = pSurface->GetSurfaceDesc(&desc);
-
-    if (SUCCEEDED(hr))
-        pLockedData = desc.lpSurface;
-    else {
-        pLockedData = nullptr;
-        return;
-    }
-
-    UINT Width = desc.dwWidth;
-    UINT Height = desc.dwHeight;
-
-    MappedSize = _getLockSize(&desc.ddpfPixelFormat, false, Width, Height, desc.lPitch);
+    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
 }
 
 static inline void
 _getMapInfo(IDirect3DVertexBuffer* pBuffer, void **ppbData, DWORD* lpdwSize,
             void * & pLockedData, size_t & MappedSize) {
-    pLockedData = *ppbData;
+    pLockedData = nullptr;
     MappedSize = 0;
 
-    D3DVERTEXBUFFERDESC Desc;
-    HRESULT hr = pBuffer->GetVertexBufferDesc(&Desc);
+    D3DVERTEXBUFFERDESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.dwSize = sizeof(desc);
+    HRESULT hr = pBuffer->GetVertexBufferDesc(&desc);
     if (FAILED(hr)) {
         return;
     }
-    MappedSize = _getVertexSize(Desc.dwFVF) * Desc.dwNumVertices;
+
+    pLockedData = *ppbData;
+    MappedSize = _getVertexSize(desc.dwFVF) * desc.dwNumVertices;
 }
 
 static inline void
 _getMapInfo(IDirect3DVertexBuffer7* pBuffer, void **ppbData, DWORD *lpdwSize,
              void * & pLockedData, size_t & MappedSize) {
-    pLockedData = *ppbData;
+    pLockedData = nullptr;
     MappedSize = 0;
 
-    D3DVERTEXBUFFERDESC Desc;
-    HRESULT hr = pBuffer->GetVertexBufferDesc(&Desc);
+    D3DVERTEXBUFFERDESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.dwSize = sizeof(desc);
+    HRESULT hr = pBuffer->GetVertexBufferDesc(&desc);
     if (FAILED(hr)) {
         return;
     }
-    MappedSize = _getVertexSize(Desc.dwFVF) * Desc.dwNumVertices;
+
+    if (ppbData && *ppbData) {
+        pLockedData = *ppbData;
+        MappedSize = _getVertexSize(desc.dwFVF) * desc.dwNumVertices;
+    }
 }
 
 static inline void
 _getMapInfo(IDirect3DExecuteBuffer* pBuffer, D3DEXECUTEBUFFERDESC* pDesc,
     void*& pLockedData, size_t& MappedSize) {
-    pLockedData = nullptr;
+
+    pLockedData = pDesc->lpData;
     MappedSize = pDesc->dwBufferSize;
 }
