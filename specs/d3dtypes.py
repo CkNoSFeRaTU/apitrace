@@ -900,9 +900,16 @@ D3DPAL = Flags(DWORD, [
     "D3DPAL_RESERVED",
 ])
 
+D3DVBCAPS = Flags(DWORD, [
+    "D3DVBCAPS_DONOTCLIP",
+    "D3DVBCAPS_SYSTEMMEMORY",
+    "D3DVBCAPS_WRITEONLY",
+    "D3DVBCAPS_OPTIMIZED",
+])
+
 D3DVERTEXBUFFERDESC = Struct("D3DVERTEXBUFFERDESC", [
     (DWORD, "dwSize"),
-    (DWORD, "dwCaps"),
+    (D3DVBCAPS, "dwCaps"),
     (DWORD, "dwFVF"),
     (DWORD, "dwNumVertices"),
 ])
