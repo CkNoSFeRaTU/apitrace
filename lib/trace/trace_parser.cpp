@@ -536,6 +536,12 @@ bool Parser::parse_call_details(Call *call, Mode mode) {
                 if (flags & FLAG_FAKE) {
                     call->flags |= CALL_FLAG_FAKE;
                 }
+                if (flags & FLAG_SWAP_RENDERTARGET) {
+                    call->flags |= CALL_FLAG_SWAP_RENDERTARGET;
+                }
+                if (flags & FLAG_END_FRAME) {
+                    call->flags |= CALL_FLAG_END_FRAME;
+                }
             }
             break;
         default:

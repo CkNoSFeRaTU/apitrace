@@ -1127,7 +1127,7 @@ class GlTracer(Tracer):
 
             # Emit a fake function
             self.array_trace_intermezzo(api, uppercase_name)
-            print('            unsigned _call = trace::localWriter.beginEnter(&_%s_sig, true);' % (function.name,))
+            print('            unsigned _call = trace::localWriter.beginEnter(&_%s_sig, trace::FLAG_FAKE);' % (function.name,))
             for arg in function.args:
                 assert not arg.output
                 print('            trace::localWriter.beginArg(%u);' % (arg.index,))
@@ -1191,7 +1191,7 @@ class GlTracer(Tracer):
         print('                size_t _size = _%s_size(%s, divisor > 0 ? instancecount / divisor : count);' % (function.name, arg_names))
 
         # Emit a fake glVertexAttribPointer function
-        print('                unsigned _call = trace::localWriter.beginEnter(&_%s_sig, true);' % (function.name,))
+        print('                unsigned _call = trace::localWriter.beginEnter(&_%s_sig, trace::FLAG_FAKE);' % (function.name,))
         for arg in function.args:
             assert not arg.output
             print('                trace::localWriter.beginArg(%u);' % (arg.index,))

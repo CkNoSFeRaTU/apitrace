@@ -213,7 +213,7 @@ void LocalWriter::checkProcessId(void) {
     }
 }
 
-unsigned LocalWriter::beginEnter(const FunctionSig *sig, bool fake) {
+unsigned LocalWriter::beginEnter(const FunctionSig *sig, Flags flags) {
     mutex.lock();
     ++acquired;
 
@@ -231,8 +231,8 @@ unsigned LocalWriter::beginEnter(const FunctionSig *sig, bool fake) {
     assert(this_thread_num);
     unsigned thread_id = this_thread_num - 1;
     unsigned call_no = Writer::beginEnter(sig, thread_id);
-    if (fake) {
-        writeFlags(FLAG_FAKE);
+    if (flags) {
+        writeFlags(flags);
     } else if (os::backtrace_is_needed(sig->name)) {
         std::vector<RawStackFrame> backtrace = os::get_backtrace();
         beginBacktrace(backtrace.size());
@@ -297,7 +297,7 @@ void fakeMemcpy(const void *ptr, size_t size) {
         return;
     }
 
-    unsigned _call = localWriter.beginEnter(&memcpy_sig, true);
+    unsigned _call = localWriter.beginEnter(&memcpy_sig, FLAG_FAKE);
 
 #if defined(_WIN32) && !defined(NDEBUG)
     size_t maxSize = 0;

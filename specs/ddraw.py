@@ -155,42 +155,47 @@ DDBLTFX = Struct("DDBLTFX", [
     (DWORD, "dwZBufferBaseDest"),
     (DWORD, "dwZDestConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ZBUFFERDESTCONSTOVERRIDE|DDBLT_ZBUFFERDESTOVERRIDE))", [
+        ("0", None, None),
         ("DDBLT_ZBUFFERDESTCONSTOVERRIDE", DWORD, "dwZDestConst"),
         ("DDBLT_ZBUFFERDESTOVERRIDE", LPDIRECTDRAWSURFACE, "lpDDSZBufferDest"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwZSrcConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ZBUFFERSRCCONSTOVERRIDE|DDBLT_ZBUFFERSRCOVERRIDE))", [
+        ("0", None, None),
         ("DDBLT_ZBUFFERSRCCONSTOVERRIDE", DWORD, "dwZSrcConst"),
         ("DDBLT_ZBUFFERSRCOVERRIDE", LPDIRECTDRAWSURFACE, "lpDDSZBufferSrc"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwAlphaEdgeBlendBitDepth"),
     (DWORD, "dwAlphaEdgeBlend"),
     (DWORD, "dwReserved"),
     (DWORD, "dwAlphaDestConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ALPHADESTCONSTOVERRIDE|DDBLT_ALPHADEST))", [
+        ("0", None, None),
         ("DDBLT_ALPHADESTCONSTOVERRIDE", DWORD, "dwAlphaDestConst"),
         ("DDBLT_ALPHADEST", LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ALPHASRCCONSTOVERRIDE|DDBLT_ALPHASRC))", [
+        ("0", None, None),
         ("DDBLT_ALPHASRCCONSTOVERRIDE", DWORD, "dwAlphaSrcConst"),
         ("DDBLT_ALPHASRC", LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_COLORFILL|DDBLT_DEPTHFILL|DDBLT_DDROPS))", [
+        ("0", None, None),
         ("DDBLT_COLORFILL", DWORD, "dwFillColor"),
         ("DDBLT_DEPTHFILL", DWORD, "dwFillDepth"),
         # Same flag as for dwFillColor but used only for RGBA or RGBZ fills. Ignore for now
         #("DDBLT_COLORFILL", DWORD, "dwFillPixel"),
         ("DDBLT_DDROPS", LPDIRECTDRAWSURFACE, "lpDDSPattern"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DDCOLORKEY, "ddckDestColorkey"),
     (DDCOLORKEY, "ddckSrcColorkey"),
@@ -610,36 +615,53 @@ DirectDrawPixelFormatFlags = Flags(DWORD, [
     "DDPF_D3DFORMAT",
 ])
 
+DirectDrawPixelFormatFourCC = Flags(DWORD, [
+    "D3DFMT_DXT1",
+    "D3DFMT_DXT2",
+    "D3DFMT_DXT3",
+    "D3DFMT_DXT4",
+    "D3DFMT_DXT5",
+    "D3DFMT_YUY2",
+])
+
 DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
     (DWORD, "dwSize"),
     (DirectDrawPixelFormatFlags, "dwFlags"),
-    (DWORD, "dwFourCC"),
+    (DirectDrawPixelFormatFourCC, "dwFourCC"),
 
-    (Union("{self}.dwFlags", [
-        ("DDPF_RGB|DDPF_ALPHA", DWORD, "dwRGBBitCount"),
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_ZBUFFER|DDPF_ALPHAPIXELS|DDPF_LUMINANCE|DDPF_BUMPDUDV|DDPF_D3DFORMAT))", [
+        ("0", None, None),
+        ("DDPF_RGB", DWORD, "dwRGBBitCount"),
+        ("DDPF_RGB|DDPF_ALPHAPIXELS", DWORD, "dwRGBBitCount"),
         ("DDPF_YUV", DWORD, "dwYUVBitCount"),
         ("DDPF_ZBUFFER", DWORD, "dwZBufferBitDepth"),
         ("DDPF_ALPHAPIXELS", DWORD, "dwAlphaBitDepth"),
         ("DDPF_LUMINANCE", DWORD, "dwLuminanceBitCount"),
+        ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitCount"),
         ("DDPF_BUMPDUDV", DWORD, "dwBumpBitCount"),
         # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
         # So this flag field doesn't suppose to be coming from applications.
         ("DDPF_D3DFORMAT", DWORD, "dwPrivateFormatBitCount"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_ALPHAPIXELS|DDPF_BUMPLUMINANCE|DDPF_BUMPDUDV|DDPF_D3DFORMAT))", [
+        ("0", None, None),
+        ("DDPF_ALPHAPIXELS", None, None),
         ("DDPF_RGB", DWORD, "dwRBitMask"),
+        ("DDPF_RGB|DDPF_ALPHAPIXELS", DWORD, "dwRBitMask"),
         ("DDPF_YUV", DWORD, "dwYBitMask"),
         ("DDPF_STENCILBUFFER", DWORD, "dwStencilBitDepth"),
-        ("DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitMask"),
+        ("DDPF_LUMINANCE", DWORD, "dwLuminanceBitMask"),
+        ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitMask"),
         ("DDPF_BUMPLUMINANCE", DWORD, "dwLuminanceBitMask"),
         ("DDPF_BUMPDUDV", DWORD, "dwBumpDuBitMask"),
         # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
         # So this flag field doesn't suppose to be coming from applications.
         ("DDPF_D3DFORMAT", DWORD, "dwOperations"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_ZBUFFER|DDPF_BUMPDUDV))", [
+        ("0", None, None),
         ("DDPF_RGB", DWORD, "dwGBitMask"),
         ("DDPF_YUV", DWORD, "dwUBitMask"),
         ("DDPF_ZBUFFER", DWORD, "dwZBitMask"),
@@ -652,22 +674,28 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
         #    (WORD, "wFlipMSTypes"),
         #    (WORD, "wBltMSTypes"),
         #]), "MultiSampleCaps"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_BUMPLUMINANCE))", [
+        ("0", None, None),
         ("DDPF_RGB", DWORD, "dwBBitMask"),
         ("DDPF_YUV", DWORD, "dwVBitMask"),
         ("DDPF_STENCILBUFFER", DWORD, "dwStencilBitMask"),
         ("DDPF_BUMPLUMINANCE", DWORD, "dwBumpLuminanceBitMask"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_LUMINANCE|DDPF_ALPHAPIXELS|DDPF_ZBUFFER))", [
+        ("0", None, None),
+        ("DDPF_ALPHAPIXELS", None, None),
+        ("DDPF_RGB", None, None),
+        ("DDPF_YUV", None, None),
+        ("DDPF_ZBUFFER", None, None),
         ("DDPF_RGB|DDPF_ALPHAPIXELS", DWORD, "dwRGBAlphaBitMask"),
         ("DDPF_YUV|DDPF_ALPHAPIXELS", DWORD, "dwYUVAlphaBitMask"),
         ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceAlphaBitMask"),
         ("DDPF_RGB|DDPF_ZBUFFER", DWORD, "dwRGBZBitMask"),
         ("DDPF_YUV|DDPF_ZBUFFER", DWORD, "dwYUVZBitMask"),
-    ], bitCmpMode=True), None),
+    ]), None),
 ])
 LPDDPIXELFORMAT = Pointer(DDPIXELFORMAT)
 
@@ -678,17 +706,19 @@ DDOVERLAYFX = Struct("DDOVERLAYFX", [
     (DWORD, "dwReserved"),
     (DWORD, "dwAlphaDestConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ALPHADESTCONSTOVERRIDE|DDBLT_ALPHADEST))", [
+        ("0", None, None),
         ("DDBLT_ALPHADESTCONSTOVERRIDE", DWORD, "dwAlphaDestConst"),
         ("DDBLT_ALPHADEST", LPDIRECTDRAWSURFACE, "lpDDSAlphaDest"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwAlphaSrcConstBitDepth"),
 
-    (Union("{parent}dwFlags", [
+    (Union("({parent}dwFlags & (DDBLT_ALPHASRCCONSTOVERRIDE|DDBLT_ALPHASRC))", [
+        ("0", None, None),
         ("DDBLT_ALPHASRCCONSTOVERRIDE", DWORD, "dwAlphaSrcConst"),
         ("DDBLT_ALPHASRC", LPDIRECTDRAWSURFACE, "lpDDSAlphaSrc"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DDCOLORKEY, "dckDestColorkey"),
     (DDCOLORKEY, "dckSrcColorkey"),
@@ -771,18 +801,20 @@ DDSURFACEDESC = Struct("DDSURFACEDESC", [
     (DWORD, "dwHeight"),
     (DWORD, "dwWidth"),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_LINEARSIZE|DDSD_PITCH))", [
+        ("0", None, None),
         ("DDSD_LINEARSIZE", DWORD, "dwLinearSize"),
         ("DDSD_PITCH", LONG, "lPitch"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwBackBufferCount"),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_MIPMAPCOUNT|DDSD_ZBUFFERBITDEPTH|DDSD_REFRESHRATE))", [
+        ("0", None, None),
         ("DDSD_MIPMAPCOUNT", DWORD, "dwMipMapCount"),
         ("DDSD_ZBUFFERBITDEPTH", DWORD, "dwZBufferBitDepth"),
         ("DDSD_REFRESHRATE", DWORD, "dwRefreshRate"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
@@ -802,43 +834,48 @@ DDSURFACEDESC2 = Struct("DDSURFACEDESC2", [
     (DWORD, "dwHeight"),
     (DWORD, "dwWidth"),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_PITCH|DDSD_LINEARSIZE))", [
+        ("0", None, None),
         ("DDSD_PITCH", LONG, "lPitch"),
         ("DDSD_LINEARSIZE", DWORD, "dwLinearSize"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_BACKBUFFERCOUNT|DDSD_DEPTH))", [
+        ("0", None, None),
         ("DDSD_BACKBUFFERCOUNT", DWORD, "dwBackBufferCount"),
         # This field is technically dead weight in 7.0a SDK as flag for it only appeared in 8.0 SDK.
         # But there are users of it. Were they compiled against 8.0+ SDK or there was an instance
         # of this field abuse in combination with some vendor extensions?
         ("DDSD_DEPTH", DWORD, "dwDepth"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_MIPMAPCOUNT|DDSD_REFRESHRATE|DDSD_SRCVBHANDLE))", [
+        ("0", None, None),
         ("DDSD_MIPMAPCOUNT", DWORD, "dwMipMapCount"),
         ("DDSD_REFRESHRATE", DWORD, "dwRefreshRate"),
         ("DDSD_SRCVBHANDLE", DWORD, "dwSrcVBHandle"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DWORD, "dwAlphaBitDepth"),
     (DWORD, "dwReserved"),
     (LinearPointer(Void, "_MappedSize"), "lpSurface"),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_CKDESTOVERLAY))", [
+        ("0", None, None),
         ("DDSD_CKDESTOVERLAY", DDCOLORKEY, "ddckCKDestOverlay"),
         # This was never implemented and so never received a flag? Ignore it for now.
         #("DDSD_EMPTYFACECOLOR", DWORD, "dwEmptyFaceColor"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DDCOLORKEY, "ddckCKDestBlt"),
     (DDCOLORKEY, "ddckCKSrcOverlay"),
     (DDCOLORKEY, "ddckCKSrcBlt"),
 
-    (Union("{self}.dwFlags", [
+    (Union("({self}.dwFlags & (DDSD_PIXELFORMAT|DDSD_FVF))", [
+        ("0", None, None),
         ("DDSD_PIXELFORMAT", DDPIXELFORMAT, "ddpfPixelFormat"),
         ("DDSD_FVF", DWORD, "dwFVF"),
-    ], bitCmpMode=True), None),
+    ]), None),
 
     (DDSCAPS2, "ddsCaps"),
     (DWORD, "dwTextureStage"),
@@ -888,6 +925,7 @@ DDCREATE = FakeEnum(DWORD, [
 ])
 
 DDCREATE_LPGUID = Polymorphic("reinterpret_cast<uintptr_t>(lpGUID)", [
+    (0, IntPointer("LPGUID")),
     ("DDCREATE_HARDWAREONLY", IntPointer("LPGUID")),
     ("DDCREATE_EMULATIONONLY", IntPointer("LPGUID")),
 ], LPGUID)

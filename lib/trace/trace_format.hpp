@@ -79,10 +79,12 @@ enum BacktraceDetail {
     BACKTRACE_OFFSET,
 };
 
-enum {
+enum Flags: uint32_t {
+    FLAG_NONE = 0,
     FLAG_FAKE = (1 << 0),
+    FLAG_SWAP_RENDERTARGET = (1 << 4),
+    FLAG_END_FRAME = (1 << 5),
 };
-
 
 } /* namespace trace */
 

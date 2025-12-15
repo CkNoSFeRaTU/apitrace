@@ -35,10 +35,6 @@ class DDrawTracer(DllTracer):
     # FIXME: wrap objects passed to IDirectDrawSurface7::EnumAttachedSurfaces
     # callback -- we don't really care for tracing these calls, but we do want
     # to trace everything done inside the callback.
-
-    # FIXME: GetDC & ReleaseDC is often used by applications with some interop like GDI's BitBlt.
-    # We should save result on ReleaseDC in trace and then on retrace use Lock, copy/blit saved data and Unlock instead.
-    # Heck, almost all samples in DX7SDK has been using and so encouraging this bad practice...
     def enumWrapperInterfaceVariables(self, interface):
         variables = DllTracer.enumWrapperInterfaceVariables(self, interface)
 
@@ -51,9 +47,9 @@ class DDrawTracer(DllTracer):
 
         return variables
     def implementWrapperInterfaceMethodBody(self, interface, base, method):
-        beforeCall = None
+        resultOverride = None
+        callFlags = "trace::FLAG_NONE"
 
-        # Hack to cooperate with clipper.
         hWndArg = method.getArgByType(HWND)
         if hWndArg is not None:
             if method.name == "SetCooperativeLevel":
@@ -62,42 +58,111 @@ class DDrawTracer(DllTracer):
                 print(r'    }')
                 print(r'    g_windowed = !(dwFlags & (DDSCL_FULLSCREEN|DDSCL_EXCLUSIVE));')
 
-        def restoreState():
-            print('    if (g_windowed && g_clipper && lpDestRect) {')
-            print('        (*lpDestRect).left += cRect.left;')
-            print('        (*lpDestRect).right += cRect.left;')
-            print('        (*lpDestRect).top += cRect.top;')
-            print('        (*lpDestRect).bottom += cRect.top;')
-            print('    }')
+        # Endframe flag
+        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
+            if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
+                print(r'    DDSCAPS2 ddsCaps;')
+            else:
+                print(r'    DDSCAPS ddsCaps;')
+            print(r'    trace::Flags callFlags = trace::FLAG_NONE;')
+            print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps)) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
+            if method.name == 'Flip':
+                print(r'        callFlags = static_cast<trace::Flags>(trace::FLAG_END_FRAME|trace::FLAG_SWAP_RENDERTARGET);')
+            else:
+                print(r'        callFlags = trace::FLAG_END_FRAME;')
+            print(r'    }')
+            callFlags = "callFlags"
+        if interface.name in ('IDirectDrawColorControl', 'IDirectDrawPalette') and method.name in ('SetColorControls', 'SetEntries'):
+            print(r'    trace::Flags callFlags = trace::FLAG_END_FRAME;')
+            callFlags = "callFlags"
 
+        # Clipper negation
         if interface.name.startswith("IDirectDrawSurface"):
             if method.name == 'Blt':
-                print('    RECT cRect;')
-                # We shouldn't save coordinates whose depend on window position to properly handle clipper on retrace
-                print('    if (g_windowed && g_clipper && lpDestRect && GetWindowRect(g_hWnd, &cRect)) {')
-                print('        (*lpDestRect).left -= cRect.left;')
-                print('        (*lpDestRect).right -= cRect.left;')
-                print('        (*lpDestRect).top -= cRect.top;')
-                print('        (*lpDestRect).bottom -= cRect.top;')
+                # We shouldn't save coordinates whose depend on current window position to properly handle clipper on retrace
+                # So we invoke method earlier to decouple it from data saving in the trace
+                print('    _result = _this->Blt(%s);' % ', '.join(method.argNames()))
+                resultOverride = "_result"
+                # And negate destination rect coordinates by current window position if we are in windowed mode and have attached clipper
+                print('    POINT cPt{0, 0};')
+                print('    RECT cRect{0, 0, 0, 0};')
+                print('    if (g_windowed && g_clipper && lpDestRect && ClientToScreen(g_hWnd, &cPt)) {')
+                print('        (*lpDestRect).left -= cPt.x;')
+                print('        (*lpDestRect).right -= cPt.x;')
+                print('        (*lpDestRect).top -= cPt.y;')
+                print('        (*lpDestRect).bottom -= cPt.y;')
                 print('    }')
-                # Restore to original state before the call
-                beforeCall = restoreState
             elif method.name == 'SetClipper':
                 if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                     print(r'    DDSCAPS2 ddsCaps;')
                 else:
                     print(r'    DDSCAPS ddsCaps;')
                 print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE))) {')
-                print(r'        g_clipper = true;')
+                print(r'        g_clipper = %s;' % ', '.join(method.argNames()))
                 print(r'    }')
 
         if method.name == 'Unlock':
             print('    if (_MappedSize && m_pbData) {')
-            if method.name == 'Unlock':
-                self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
+            self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
             print('    }')
 
-        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, beforeCall = beforeCall)
+        if method.name == 'ReleaseDC':
+            print('    HBITMAP hBmpSrc = (HBITMAP)GetCurrentObject(hDC, OBJ_BITMAP);')
+            print('    if (hBmpSrc) {')
+            print('        BITMAP bm;')
+            print('        GetObject(hBmpSrc, sizeof(bm), &bm);')
+
+            print('        BITMAPINFO bmi{ 0 };')
+            print('        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);')
+            print('        bmi.bmiHeader.biWidth = bm.bmWidth;')
+            print('        bmi.bmiHeader.biHeight = bm.bmHeight;')
+            print('        bmi.bmiHeader.biPlanes = bm.bmPlanes;')
+            print('        bmi.bmiHeader.biBitCount = bm.bmBitsPixel;')
+            print('        bmi.bmiHeader.biCompression = BI_RGB;')
+
+            print('        void* pBits = NULL;')
+            print('        HDC mDC = CreateCompatibleDC(hDC);')
+            print('        HBITMAP hBmp = CreateDIBSection(mDC, &bmi, DIB_RGB_COLORS, &pBits, NULL, 0);')
+            print('        if (mDC && hBmp) {')
+            print('            SelectObject(mDC, hBmp);')
+
+            print('            BitBlt(mDC, 0, 0, bm.bmWidth, bm.bmHeight, hDC, 0, 0, SRCCOPY);')
+
+            print('            size_t bitsSize = bm.bmWidth * bm.bmHeight * (bm.bmBitsPixel / 8);')
+
+            print('            const char* bitblt_args[3] = { "dest", "src", "n" };')
+            print('            const trace::FunctionSig bitblt_sig = { %u, "bitblt", 3, bitblt_args };' % (self.getFunctionSigId()))
+
+            print('            unsigned _call = trace::localWriter.beginEnter(&bitblt_sig, trace::FLAG_FAKE);')
+            print('            trace::localWriter.beginArg(0);')
+            print('            trace::localWriter.writePointer((uintptr_t)hDC);')
+            print('            trace::localWriter.endArg();')
+            print('            trace::localWriter.beginArg(1);')
+            print('            trace::localWriter.writeBlob(pBits, bitsSize);')
+            print('            trace::localWriter.endArg();')
+            print('            trace::localWriter.beginArg(2);')
+            print('            trace::localWriter.writeUInt(bitsSize);')
+            print('            trace::localWriter.endArg();')
+            print('            trace::localWriter.endEnter();')
+            print('            trace::localWriter.beginLeave(_call);')
+            print('            trace::localWriter.endLeave();')
+
+            print('            DeleteObject(hBmp);')
+            print('            DeleteDC(mDC);')
+            print('        }')
+            print('    }')
+
+        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags)
+
+        if interface.name.startswith("IDirectDrawSurface"):
+            if method.name == 'Blt':
+                # We need to restore destination rect to original state if we messed with it so application don't become confused on subsequent calls
+                print('    if (g_windowed && g_clipper && lpDestRect && (cPt.x || cPt.y)) {')
+                print('        (*lpDestRect).left += cPt.x;')
+                print('        (*lpDestRect).right += cPt.x;')
+                print('        (*lpDestRect).top += cPt.y;')
+                print('        (*lpDestRect).bottom += cPt.y;')
+                print('    }')
 
         if method.name == 'Lock':
             # FIXME: handle recursive locks
@@ -125,21 +190,11 @@ if __name__ == '__main__':
     print()
 
     print('static HWND g_hWnd{0};')
-    print('static bool g_clipper = false;')
+    print('static LPDIRECTDRAWCLIPPER g_clipper = nullptr;')
     print('static bool g_windowed = false;')
 
     api = API()
     api.addModule(ddraw)
-
-    fake_function_names = [
-        'GetCurrentObject',
-    ]
-
-    # Declare helper functions to emit fake function calls into the trace
-    for function in api.getAllFunctions():
-        if function.name in fake_function_names:
-            print(function.prototype('_fake_' + function.name) + ';')
-        print()
 
     tracer = DDrawTracer()
     tracer.traceApi(api)

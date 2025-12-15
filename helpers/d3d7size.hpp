@@ -35,6 +35,7 @@
 #include <string>
 #include <fstream>
 
+
 static inline size_t
 _getVertexSize(DWORD dwFVF) {
     size_t size = 0;
@@ -153,24 +154,29 @@ _getFormatSize(LPDDPIXELFORMAT fmt, size_t & BlockSize, UINT & BlockWidth, UINT 
         BlockSize = fmt->dwBumpBitCount;
     } else if ((fmt->dwFlags & DDPF_FOURCC)) {
         switch (fmt->dwFourCC) {
-            case MAKEFOURCC('D', 'X', 'T', '1'):
+            case D3DFMT_DXT1:
                 BlockHeight = BlockWidth = 4;
                 BlockSize = 64;
                 break;
-            case MAKEFOURCC('D', 'X', 'T', '2'):
-            case MAKEFOURCC('D', 'X', 'T', '3'):
-            case MAKEFOURCC('D', 'X', 'T', '4'):
-            case MAKEFOURCC('D', 'X', 'T', '5'):
+            case D3DFMT_DXT2:
+            case D3DFMT_DXT3:
+            case D3DFMT_DXT4:
+            case D3DFMT_DXT5:
                 BlockHeight = BlockWidth = 4;
                 BlockSize = 128;
                 break;
+            case D3DFMT_YUY2:
+                BlockWidth = 2;
+                BlockSize = 32;
+                break;
             default:
-                os::log("apitrace: warning: %s: unknown FOURCC DDPIXELFORMAT %lu\n", __FUNCTION__, fmt->dwFlags);
+                os::log("apitrace: warning: %s: unknown FOURCC DDPIXELFORMAT %lu (%c%c%c%c)\n", __FUNCTION__, fmt->dwFourCC,
+                    fmt->dwFourCC & 0xFF, (fmt->dwFourCC >> 8) & 0xFF, (fmt->dwFourCC >> 16) & 0xFF, (fmt->dwFourCC >> 24) & 0xFF);
                 BlockSize = 0;
                 break;
         }
     } else {
-        os::log("apitrace: warning: %s: unknown DDPIXELFORMAT %lu\n", __FUNCTION__, fmt->dwFlags);
+        os::log("apitrace: warning: %s: unknown DDPIXELFORMAT %0xlx\n", __FUNCTION__, fmt->dwFlags);
         BlockSize = 0;
     }
 }
@@ -189,6 +195,22 @@ _getLockSize(LPDDPIXELFORMAT Format, bool Partial, UINT Width, UINT Height, INT 
     }
 
     size_t size;
+    if (Format->dwFlags & DDPF_FOURCC && Format->dwFourCC == D3DFMT_DXT1) {
+        if (RowPitch == PACKED_PITCH) {
+            RowPitch = Width;
+        }
+
+        size = std::min(Height * RowPitch, ((Height + 3) / 4) * ((Width + 3) / 4) * (64 / 8));
+    } else if (Format->dwFlags & DDPF_FOURCC && (
+                Format->dwFourCC == D3DFMT_DXT2 || Format->dwFourCC == D3DFMT_DXT3
+            || Format->dwFourCC == D3DFMT_DXT4 || Format->dwFourCC == D3DFMT_DXT5)) {
+        if (RowPitch == PACKED_PITCH) {
+            RowPitch = Width;
+        }
+
+        size = std::min(Height * RowPitch, ((Height + 3) / 4) * ((Width + 3) / 4) * (128 / 8));
+    }
+    else
     {
         size_t BlockSize;
         UINT BlockWidth;
@@ -227,32 +249,12 @@ _getLockSize(LPDDPIXELFORMAT Format, bool Partial, UINT Width, UINT Height, INT 
     return size;
 }
 
+template<typename S, typename D>
 static inline void
-_getMapInfo(IDirectDrawSurface* pSurface, RECT* pRect, DDSURFACEDESC* pDesc,
-    void*& pLockedData, size_t& MappedSize) {
-    MappedSize = 0;
-    pLockedData = nullptr;
-
-    UINT Width;
-    UINT Height;
-    if (pRect) {
-        Width = pRect->right - pRect->left;
-        Height = pRect->bottom - pRect->top;
-    }
-    else {
-        Width = pDesc->dwWidth;
-        Height = pDesc->dwHeight;
-    }
-
-    pLockedData = pDesc->lpSurface;
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
-}
-
-static inline void
-_getMapInfo(IDirectDrawSurface2* pSurface, RECT * pRect, DDSURFACEDESC * pDesc,
+_getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
              void * & pLockedData, size_t & MappedSize) {
     MappedSize = 0;
-    pLockedData = nullptr;
+    pLockedData = pLockedData = pDesc->lpSurface;
 
     UINT Width;
     UINT Height;
@@ -262,74 +264,21 @@ _getMapInfo(IDirectDrawSurface2* pSurface, RECT * pRect, DDSURFACEDESC * pDesc,
     } else {
         Width  = pDesc->dwWidth;
         Height = pDesc->dwHeight;
+
+        // When destination rect isn't specified so we are looking for a size of entire surface and dwLinearSize is valid
+        // then just use it and skip our own calculations. DXT1-5 go this route in most cases.
+        if (pDesc->dwFlags & DDSD_LINEARSIZE) {
+            MappedSize = pDesc->dwLinearSize;
+            return;
+        }
     }
 
-    pLockedData = pDesc->lpSurface;
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
+    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->dwFlags & DDSD_PITCH ? pDesc->lPitch : PACKED_PITCH);
 }
 
+template<typename B>
 static inline void
-_getMapInfo(IDirectDrawSurface3* pSurface, RECT * pRect, DDSURFACEDESC * pDesc,
-             void * & pLockedData, size_t & MappedSize) {
-    MappedSize = 0;
-    pLockedData = nullptr;
-
-    UINT Width;
-    UINT Height;
-    if (pRect) {
-        Width  = pRect->right  - pRect->left;
-        Height = pRect->bottom - pRect->top;
-    } else {
-        Width  = pDesc->dwWidth;
-        Height = pDesc->dwHeight;
-    }
-
-    pLockedData = pDesc->lpSurface;
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
-}
-
-static inline void
-_getMapInfo(IDirectDrawSurface4* pSurface, RECT * pRect, DDSURFACEDESC2 * pDesc,
-             void * & pLockedData, size_t & MappedSize) {
-    MappedSize = 0;
-    pLockedData = nullptr;
-
-    UINT Width;
-    UINT Height;
-    if (pRect) {
-        Width  = pRect->right  - pRect->left;
-        Height = pRect->bottom - pRect->top;
-    } else {
-        Width  = pDesc->dwWidth;
-        Height = pDesc->dwHeight;
-    }
-
-    pLockedData = pDesc->lpSurface;
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
-}
-
-static inline void
-_getMapInfo(IDirectDrawSurface7* pSurface, RECT * pRect, DDSURFACEDESC2 * pDesc,
-             void * & pLockedData, size_t & MappedSize) {
-    MappedSize = 0;
-    pLockedData = nullptr;
-
-    UINT Width;
-    UINT Height;
-    if (pRect) {
-        Width  = pRect->right  - pRect->left;
-        Height = pRect->bottom - pRect->top;
-    } else {
-        Width  = pDesc->dwWidth;
-        Height = pDesc->dwHeight;
-    }
-
-    pLockedData = pDesc->lpSurface;
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->lPitch);
-}
-
-static inline void
-_getMapInfo(IDirect3DVertexBuffer* pBuffer, void **ppbData, DWORD* lpdwSize,
+_getMapInfo(B* pBuffer, void **ppbData, DWORD* lpdwSize,
             void * & pLockedData, size_t & MappedSize) {
     pLockedData = nullptr;
     MappedSize = 0;
@@ -344,26 +293,6 @@ _getMapInfo(IDirect3DVertexBuffer* pBuffer, void **ppbData, DWORD* lpdwSize,
 
     pLockedData = *ppbData;
     MappedSize = _getVertexSize(desc.dwFVF) * desc.dwNumVertices;
-}
-
-static inline void
-_getMapInfo(IDirect3DVertexBuffer7* pBuffer, void **ppbData, DWORD *lpdwSize,
-             void * & pLockedData, size_t & MappedSize) {
-    pLockedData = nullptr;
-    MappedSize = 0;
-
-    D3DVERTEXBUFFERDESC desc;
-    ZeroMemory(&desc, sizeof(desc));
-    desc.dwSize = sizeof(desc);
-    HRESULT hr = pBuffer->GetVertexBufferDesc(&desc);
-    if (FAILED(hr)) {
-        return;
-    }
-
-    if (ppbData && *ppbData) {
-        pLockedData = *ppbData;
-        MappedSize = _getVertexSize(desc.dwFVF) * desc.dwNumVertices;
-    }
 }
 
 static inline void

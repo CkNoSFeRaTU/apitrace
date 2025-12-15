@@ -114,7 +114,7 @@ public:
 
     void visit(Call *call) {
         unsigned call_no = writer.beginEnter(call->sig, call->thread_id);
-        if (call->flags & CALL_FLAG_FAKE) {
+        if (call->flags & FLAG_FAKE) {
             writer.writeFlags(FLAG_FAKE);
         }
         if (call->backtrace != NULL) {

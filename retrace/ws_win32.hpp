@@ -34,7 +34,10 @@ namespace ws {
 
 
 HWND
-createWindow(LPCSTR lpszWindowName, int nWidth, int nHeight);
+createWindow(LPCSTR lpszWindowName, int nWidth, int nHeight, DWORD dwStyle = 0, DWORD dwExStyle = 0);
+
+void
+restyleWindow(HWND hWnd, DWORD dwStyle, DWORD dwExStyle);
 
 void
 showWindow(HWND hWnd);

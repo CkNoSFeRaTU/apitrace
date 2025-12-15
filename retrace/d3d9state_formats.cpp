@@ -120,7 +120,7 @@ formatToString(D3DFORMAT fmt)
     case D3DFMT_AL16: return "D3DFMT_AL16";
     case D3DFMT_R16: return "D3DFMT_R16";
     default:
-        static char buf[12];
+        static char buf[12] = { 0 };
 
         if (fmt > 255) {
             char ch0 = fmt;
@@ -306,6 +306,7 @@ ConvertImage(D3DFORMAT SrcFormat,
 #ifdef HAVE_DXGI
         image = ConvertImageDXGI(SrcFormat, SrcData, SrcPitch, Width, Height);
         if (image) {
+            image->formatName = formatToString(SrcFormat);
             return image;
         }
 #endif
@@ -345,9 +346,9 @@ ConvertImage(D3DFORMAT SrcFormat,
         case D3DFMT_R5G6B5:
             for (unsigned x = 0; x < Width; ++x) {
                 uint32_t pixel = ((const uint16_t *)src)[x];
-                dst[3*x + 0] = (( pixel        & 0x1f) * (2*0xff) + 0x1f) / (2*0x1f);
+                dst[3*x + 0] = (( pixel >> 11        ) * (2*0xff) + 0x1f) / (2*0x1f);
                 dst[3*x + 1] = (((pixel >>  5) & 0x3f) * (2*0xff) + 0x3f) / (2*0x3f);
-                dst[3*x + 2] = (( pixel >> 11        ) * (2*0xff) + 0x1f) / (2*0x1f);
+                dst[3*x + 2] = (( pixel        & 0x1f) * (2*0xff) + 0x1f) / (2*0x1f);
             }
             break;
         case D3DFMT_X8R8G8B8:

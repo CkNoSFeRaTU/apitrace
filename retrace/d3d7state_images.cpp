@@ -73,12 +73,6 @@ typedef enum _D3DFORMAT
     D3DFMT_D32F_LOCKABLE        = 82,
     D3DFMT_D24FS8               = 83,
 
-    D3DFMT_DXT1                 = MAKEFOURCC('D', 'X', 'T', '1'),
-    D3DFMT_DXT2                 = MAKEFOURCC('D', 'X', 'T', '2'),
-    D3DFMT_DXT3                 = MAKEFOURCC('D', 'X', 'T', '3'),
-    D3DFMT_DXT4                 = MAKEFOURCC('D', 'X', 'T', '4'),
-    D3DFMT_DXT5                 = MAKEFOURCC('D', 'X', 'T', '5'),
-
     D3DFMT_FORCE_DWORD          = 0x7fffffff
 } D3DFORMAT;
 
@@ -166,16 +160,18 @@ convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
         break;
     case DDPF_FOURCC:
         switch (ddpfPixelFormat.dwFourCC) {
-        case MAKEFOURCC('D', 'X', 'T', '1'):
-            return D3DFMT_DXT1;
-        case MAKEFOURCC('D', 'X', 'T', '2'):
-            return D3DFMT_DXT2;
-        case MAKEFOURCC('D', 'X', 'T', '3'):
-            return D3DFMT_DXT3;
-        case MAKEFOURCC('D', 'X', 'T', '4'):
-            return D3DFMT_DXT4;
-        case MAKEFOURCC('D', 'X', 'T', '5'):
-            return D3DFMT_DXT5;
+        case D3DFMT_DXT1:
+            return static_cast<D3DFORMAT>(D3DFMT_DXT1);
+        case D3DFMT_DXT2:
+            return static_cast<D3DFORMAT>(D3DFMT_DXT2);
+        case D3DFMT_DXT3:
+            return static_cast<D3DFORMAT>(D3DFMT_DXT3);
+        case D3DFMT_DXT4:
+            return static_cast<D3DFORMAT>(D3DFMT_DXT4);
+        case D3DFMT_DXT5:
+            return static_cast<D3DFORMAT>(D3DFMT_DXT5);
+        case D3DFMT_YUY2:
+            return static_cast<D3DFORMAT>(D3DFMT_YUY2);
         }
         break;
     }
@@ -203,7 +199,24 @@ getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
     if (Format == D3DFMT_UNKNOWN) {
         std::cerr << "warning: unsupported DDPIXELFORMAT\n";
     } else {
-        image = ConvertImage(Format, desc.lpSurface, desc.lPitch, desc.dwWidth, desc.dwHeight);
+        INT pitch = 0;
+        if (desc.dwFlags & DDSD_PITCH) {
+            pitch = desc.lPitch;
+        } else {
+            switch (Format) {
+            case(D3DFMT_DXT1):
+                pitch = ((desc.dwWidth + 3) / 4) * (64 / 8);
+                break;
+            case(D3DFMT_DXT2):
+            case(D3DFMT_DXT3):
+            case(D3DFMT_DXT4):
+            case(D3DFMT_DXT5):
+                pitch = ((desc.dwWidth + 3) / 4) * (128 / 8);
+                break;
+            }
+        }
+
+        image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight);
     }
 
     pSurface->Unlock(NULL);
@@ -380,7 +393,6 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
         com_ptr<IDirectDrawSurface7> pDepthStencil;
         hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pDepthStencil);
         if (SUCCEEDED(hr) && pDepthStencil) {
-            std::cerr << "found ZS!!\n";
             image = getSurfaceImage(pDevice, pDepthStencil);
             if (image) {
                 writer.beginMember("DEPTH_STENCIL");

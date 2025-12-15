@@ -33,17 +33,17 @@ from specs.stdapi import API
 from specs.d3d import ddraw, HWND
 from specs.ddraw import DDCREATE_LPGUID
 
-
 class D3DRetracer(Retracer):
-
     def retraceApi(self, api):
         print('// Swizzling mapping for lock addresses')
         print('static std::map<void *, void *> _maps;')
         print()
-        # TODO: Keep a table of windows
+        # FIXME: Properly handle multiple windows
         print('static HWND g_hWnd{0};')
         print('static int g_width = 0, g_height = 0;');
-        print('static bool g_clipper = false;')
+        print('static LPDIRECTDRAWCLIPPER g_clipper = nullptr;')
+        #print('static bool g_clipper = nullptr;')
+        print('static LPDIRECTDRAWSURFACE7 g_primary = nullptr;')
         print()
 
         Retracer.retraceApi(self, api)
@@ -60,7 +60,7 @@ class D3DRetracer(Retracer):
 
         # notify frame has been completed
         # process events after presents
-        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'Flip', 'Unlock', 'ReleaseDC'):
+        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
             if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                 print(r'    DDSCAPS2 ddsCaps;')
             else:
@@ -70,20 +70,16 @@ class D3DRetracer(Retracer):
             print(r'        retrace::frameComplete(call);')
             print(r'        d3dretrace::processEvents();')
             print(r'    }')
-        if interface.name.startswith('IDirect3DDevice') and method.name == 'EndScene':
+        if interface.name in ('IDirectDrawColorControl', 'IDirectDrawPalette') and method.name in ('SetColorControls', 'SetEntries'):
             print(r'    retrace::frameComplete(call);')
             print(r'    d3dretrace::processEvents();')
-        # FIXME: these should be handled too?
-        #if interface.name.startswith('IDirectDrawPalette') and method.name == 'SetEntries':
-        #if interface.name.startswith('IDirectColorControl') and method.name == 'SetColorControls':
 
         # handle windows
         hWndArg = method.getArgByType(HWND)
         if hWndArg is not None:
             if method.name == "SetCooperativeLevel":
-                print(r'    if (!g_hWnd) {')
-                print(r'        g_hWnd = d3dretrace::createWindow(g_width ? g_width : 640, g_height ? g_height : 480);')
-                print(r'    }')
+                print(r'    g_hWnd = d3dretrace::createWindow(g_hWnd, g_width ? g_width : 640, g_height ? g_height : 480, \
+                        dwFlags & DDSCL_FULLSCREEN ? WS_POPUP | WS_VISIBLE : 0, dwFlags & DDSCL_FULLSCREEN ? WS_EX_APPWINDOW : 0);')
                 print(r'    %s = g_hWnd;' % hWndArg.name)
                 print(r'    _HWND_map[static_cast<HWND>((call.arg(1)).toPointer())] = g_hWnd;')
             else:
@@ -97,13 +93,16 @@ class D3DRetracer(Retracer):
                 print(r'    dwFlags &= ~DDLOCK_DONOTWAIT;')
                 print(r'    dwFlags |= DDLOCK_WAIT;')
 
-        # Hack to cooperate with clipper.
-        if interface.name.startswith("IDirectDrawSurface"):
+        if method.name == 'ReleaseDC':
+            print('    d3dretrace::setHDC((call.arg(1)).toUInt(), nullptr);')
+
+        if interface.name.startswith('IDirectDrawSurface'):
+            # Clipper adjustments
             if method.name == 'Blt':
-                print(r'    if (ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE) && lpDestRect) {')
+                print(r'    if ((ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) && lpDestRect) {')
                 print(r'        size_t n_width = (*lpDestRect).right - (*lpDestRect).left;')
                 print(r'        size_t n_height = (*lpDestRect).bottom - (*lpDestRect).top;')
-                print(r'        if (g_clipper && n_width != g_width || n_height != g_height) {')
+                print(r'        if (g_clipper && (n_width != g_width || n_height != g_height)) {')
                 print(r'            g_width = n_width;')
                 print(r'            g_height = n_height;')
                 print(r'            d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
@@ -123,8 +122,14 @@ class D3DRetracer(Retracer):
                 else:
                     print(r'    DDSCAPS ddsCaps;')
                 print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE))) {')
-                print(r'        g_clipper = true;')
+                print(r'        g_clipper = lpDDClipper;')
                 print(r'    }')
+        if interface.name.startswith('IDirectDraw'):
+            if method.name == 'SetDisplayMode':
+                print(r'    g_width = dwWidth;')
+                print(r'    g_height = dwHeight;')
+                print(r'    if (g_hWnd && g_clipper)')
+                print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
 
         Retracer.invokeInterfaceMethod(self, interface, method)
 
@@ -134,26 +139,22 @@ class D3DRetracer(Retracer):
             print(r'    }')
 
         # Hack to set window size according to primary surfaces sizes.
-        if interface.name.startswith('IDirectDraw'):
-            if method.name in ('SetDisplayMode'):
-                print(r'    g_height = dwHeight;')
-                print(r'    g_width = dwWidth;')
-                print(r'    if (g_clipper)')
-                print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
-            if method.name in ('CreateSurface'):
-                print(r'    if (g_clipper && lpDDSurfaceDesc) {')
-                print(r'        if ((*lpDDSurfaceDesc).dwHeight > 0 && (*lpDDSurfaceDesc).dwWidth > 0 ')
-                print(r'            && ((*lpDDSurfaceDesc).ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
-                print(r'            g_height = (*lpDDSurfaceDesc).dwHeight;')
-                print(r'            g_width = (*lpDDSurfaceDesc).dwWidth;')
-                print(r'            d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
-                print(r'        }')
-                print(r'    }')
+        if interface.name.startswith('IDirectDraw') and method.name == 'CreateSurface':
+            print(r'    if (lpDDSurfaceDesc) {')
+            print(r'        if ((*lpDDSurfaceDesc).ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {')
+            print(r'            if ((*lpDDSurfaceDesc).dwHeight > 0 && (*lpDDSurfaceDesc).dwWidth > 0) {')
+            print(r'                g_height = (*lpDDSurfaceDesc).dwHeight;')
+            print(r'                g_width = (*lpDDSurfaceDesc).dwWidth;')
+            print(r'                if (g_clipper) {')
+            print(r'                    d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
+            print(r'                }')
+            print(r'            }')
+            print(r'        }')
+            print(r'    }')
 
         if method.name in ('Lock'):
             print('    VOID *_pbData = nullptr;')
             print('    size_t _MappedSize = 0;')
-            print('    if (_maps[_this]) { os::log("already locked?!\\n"); }')
 
             if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
                 print('    if (!(dwFlags & DDLOCK_READONLY)) {')
@@ -179,6 +180,12 @@ class D3DRetracer(Retracer):
             print('    if (_pbData) {')
             print('        retrace::delRegionByPointer(_pbData);')
             print('        _maps[_this] = 0;')
+            print('    }')
+
+        if method.name == 'GetDC':
+            print('    const trace::Array *_ar = (call.arg(1)).toArray();')
+            print('    if (_ar) {')
+            print('        d3dretrace::setHDC((*_ar->values[0]).toUInt(), phDC[0]);')
             print('    }')
 
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):

@@ -68,9 +68,8 @@ WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-
-static const DWORD dwExStyle = 0;
-static const DWORD dwStyle = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_OVERLAPPEDWINDOW;
+static const DWORD defExStyle = 0;
+static const DWORD defStyle = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_OVERLAPPEDWINDOW;
 
 static LPCSTR g_lpszClassName = "retrace";
 
@@ -80,6 +79,8 @@ struct WindowThreadParam
     LPCSTR lpszWindowName;
     int nWidth;
     int nHeight;
+    DWORD dwStyle;
+    DWORD dwExStyle;
 
     HANDLE hEvent;
 
@@ -93,10 +94,10 @@ windowThreadFunction( LPVOID _lpParam )
     WindowThreadParam *lpParam = (WindowThreadParam *)_lpParam;
 
     // Actually create the window
-    lpParam->hWnd = CreateWindowExA(dwExStyle,
+    lpParam->hWnd = CreateWindowExA(lpParam->dwExStyle,
                                     g_lpszClassName,
                                     lpParam->lpszWindowName,
-                                    dwStyle,
+                                    lpParam->dwStyle,
                                     0, // x
                                     0, // y
                                     lpParam->nWidth,
@@ -137,7 +138,7 @@ windowThreadFunction( LPVOID _lpParam )
  * thread per each window.
  */
 HWND
-createWindow(LPCSTR lpszWindowName, int nWidth, int nHeight)
+createWindow(LPCSTR lpszWindowName, int nWidth, int nHeight, DWORD dwStyle, DWORD dwExStyle)
 {
     // Create window class
     static bool first = TRUE;
@@ -167,20 +168,25 @@ createWindow(LPCSTR lpszWindowName, int nWidth, int nHeight)
     param.nWidth  = rect.right  - rect.left;
     param.nHeight = rect.bottom - rect.top;
     param.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    param.dwStyle = dwStyle ? dwStyle : defStyle;
+    param.dwExStyle = dwExStyle ? dwExStyle : defExStyle;
     _beginthreadex(NULL, 0, &windowThreadFunction, (LPVOID)&param, 0, NULL);
 
     // Wait for window creation event
     WaitForSingleObject(param.hEvent, INFINITE);
     CloseHandle(param.hEvent);
 
-    RECT rClient;
-    GetClientRect(param.hWnd, &rClient);
-    assert(rClient.right  - rClient.left >= nWidth);
-    assert(rClient.bottom - rClient.top  >= nHeight);
-
     return param.hWnd;
 }
 
+void
+restyleWindow(HWND hWnd, DWORD dwStyle, DWORD dwExStyle)
+{
+    if (dwStyle)
+        SetWindowLongPtr(hWnd, GWL_STYLE, dwStyle ? dwStyle : defStyle);
+    if (dwExStyle)
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, dwExStyle ? dwExStyle : defExStyle);
+}
 
 void
 showWindow(HWND hWnd)
@@ -209,6 +215,7 @@ resizeWindow(HWND hWnd, int width, int height)
     UINT uFlags = SWP_NOMOVE
                 | SWP_NOZORDER
                 | SWP_NOACTIVATE
+                | SWP_ASYNCWINDOWPOS
                 | SWP_NOOWNERZORDER;
 
     SetWindowPos(hWnd, NULL, rWindow.left, rWindow.top, width, height, uFlags);

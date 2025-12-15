@@ -362,7 +362,6 @@ QString ApiStruct::toString(bool multiLine) const
 {
     QString str;
 
-    str += QLatin1String("{");
     // Replace GUIDs with their symbolic name
     // TODO: This is basically slightly adapted to QT copy of the same code block from trace_dump.
     if (m_members.count() == 4 && m_sig.name == "GUID") {
@@ -377,16 +376,32 @@ QString ApiStruct::toString(bool multiLine) const
             guid.Data4[i++] = d.toUInt();
         }
         const char* name = getGuidName(guid);
-        str += QString(name);
-    } else
-    for (unsigned i = 0; i < m_members.count(); ++i) {
-        str += m_sig.memberNames[i] %
-               QLatin1String(" = ") %
-               apiVariantToString(m_members[i], multiLine);
-        if (i < m_members.count() - 1)
-            str += QLatin1String(", ");
+        str += QLatin1String("{") + QString(name) + QLatin1String("}");
+    } else {
+        QString result;
+        for (unsigned i = 0; i < m_members.count(); ++i) {
+            QString value = apiVariantToString(m_members[i], multiLine);
+            if (!value.isEmpty()) {
+                if (!result.isEmpty()) {
+                    result += QLatin1String(", ");
+                }
+                if (!m_sig.memberNames[i].isEmpty()) {
+                    result += m_sig.memberNames[i] % QLatin1String(" = ");
+                }
+                result += value;
+            }
+        }
+        // Strip {} for anonymous union and return empty result if all members are absent
+        if (!result.isEmpty()) {
+            if (!m_sig.name.isEmpty()) {
+                str += QLatin1String("{");
+            }
+            str += result;
+            if (!m_sig.name.isEmpty()) {
+                str += QLatin1String("}");
+            }
+        }
     }
-    str += QLatin1String("}");
 
     return str;
 }

@@ -35,6 +35,7 @@
 
 #include "os_thread.hpp"
 #include "os_process.hpp"
+#include "trace_format.hpp"
 #include "trace_writer.hpp"
 
 
@@ -94,7 +95,7 @@ namespace trace {
         /**
          * It will acquire the mutex.
          */
-        unsigned beginEnter(const FunctionSig *sig, bool fake = false);
+        unsigned beginEnter(const FunctionSig *sig, Flags flags = FLAG_NONE);
 
         /**
          * It will release the mutex.

@@ -177,6 +177,8 @@ LPDIRECT3D7 = ObjPointer(IDirect3D7)
 LPDIRECT3DDEVICE7 = ObjPointer(IDirect3DDevice7)
 LPDIRECT3DVERTEXBUFFER7 = ObjPointer(IDirect3DVertexBuffer7)
 
+LPD3DEXECUTEBUFFERDESC = ObjPointer(D3DEXECUTEBUFFERDESC)
+
 IDirect3D.methods += [
     StdMethod(HRESULT, "Initialize", [(REFCLSID, "riid")]),
     StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
@@ -254,7 +256,7 @@ IDirect3DDevice2.methods += [
     StdMethod(HRESULT, "GetRenderTarget", [Out(Pointer(LPDIRECTDRAWSURFACE), "lplpRenderTarget")]),
     StdMethod(HRESULT, "Begin", [(D3DPRIMITIVETYPE, "d3dpt"), (D3DVERTEXTYPE, "dwVertexTypeDesc"), (DWORD, "dwFlags")]),
     StdMethod(HRESULT, "BeginIndexed", [(D3DPRIMITIVETYPE, "d3dptPrimitiveType"), (D3DVERTEXTYPE, "d3dvtVertexType"), (Blob(VOID, "dwNumVertices * _getVertexSize(d3dvtVertexType)"), "lpvVertices"), (DWORD, "dwNumVertices"), (DWORD, "dwFlags")]),
-    StdMethod(HRESULT, "Vertex", [(LPVOID, "lpVertexType")]),
+    StdMethod(HRESULT, "Vertex", [(ObjPointer(Void), "lpVertexType")]),
     StdMethod(HRESULT, "Index", [(WORD, "wVertexIndex")]),
     StdMethod(HRESULT, "End", [(DWORD, "dwFlags")]),
     StdMethod(HRESULT, "GetRenderState", [(D3DRENDERSTATETYPE, "dwRenderStateType"), Out(LPDWORD, "lpdwRenderState")], sideeffects=False),
@@ -286,7 +288,7 @@ IDirect3DDevice3.methods += [
     StdMethod(HRESULT, "GetRenderTarget", [Out(Pointer(LPDIRECTDRAWSURFACE4), "lplpRenderTarget")]),
     StdMethod(HRESULT, "Begin", [(D3DPRIMITIVETYPE, "d3dptPrimitiveType"), (DWORD, "dwVertexTypeDesc"), (DWORD, "dwFlags")]),
     StdMethod(HRESULT, "BeginIndexed", [(D3DPRIMITIVETYPE, "d3dptPrimitiveType"), (DWORD, "d3dvtVertexType"), (Blob(VOID, "dwNumVertices * _getVertexSize(d3dvtVertexType)"), "lpvVertices"), (DWORD, "dwNumVertices"), (DWORD, "dwFlags")]),
-    StdMethod(HRESULT, "Vertex", [(LPVOID, "lpVertexType")]),
+    StdMethod(HRESULT, "Vertex", [(ObjPointer(Void), "lpVertexType")]),
     StdMethod(HRESULT, "Index", [(WORD, "wVertexIndex")]),
     StdMethod(HRESULT, "End", [(DWORD, "dwFlags")]),
     StdMethod(HRESULT, "GetRenderState", [(D3DRENDERSTATETYPE, "dwRenderStateType"), Out(LPDWORD, "lpdwRenderState")], sideeffects=False),

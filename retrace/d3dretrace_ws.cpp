@@ -29,17 +29,18 @@
 #include "d3dretrace.hpp"
 
 #include "ws_win32.hpp"
+#include "d3dretrace_misc.hpp"
 
 
 namespace d3dretrace {
 
 
 HWND
-createWindow(int width, int height)
+createWindow(int width, int height, DWORD dwStyle, DWORD dwExStyle)
 {
     HWND hWnd;
 
-    hWnd = ws::createWindow("d3dretrace", width, height);
+    hWnd = ws::createWindow("d3dretrace", width, height, dwStyle, dwExStyle);
 
     ws::showWindow(hWnd);
 
@@ -52,20 +53,28 @@ static HWND_MAP g_hWndMap;
 
 
 HWND
-createWindow(HWND hWnd, int width, int height)
+createWindow(HWND hWnd, int width, int height, DWORD dwStyle, DWORD dwExStyle)
 {
     HWND_MAP::iterator it;
     it = g_hWndMap.find(hWnd);
     if (it == g_hWndMap.end()) {
         // Create a new window
-        hWnd = createWindow(width, height);
+        hWnd = createWindow(width, height, dwStyle, dwExStyle);
         g_hWndMap[hWnd] = hWnd;
     } else {
         // Reuse the existing window
         hWnd = it->second;
         ws::resizeWindow(hWnd, width, height);
+        ws::restyleWindow(hWnd, dwStyle, dwExStyle);
     }
     return hWnd;
+}
+
+
+void
+restyleWindow(HWND hWnd, DWORD dwStyle, DWORD dwExStyle)
+{
+    ws::restyleWindow(hWnd, dwStyle, dwExStyle);
 }
 
 
@@ -81,6 +90,5 @@ processEvents(void)
 {
     return ws::processEvents();
 }
-
 
 } /* namespace d3dretrace */

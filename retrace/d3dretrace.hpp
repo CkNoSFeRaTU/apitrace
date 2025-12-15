@@ -36,6 +36,7 @@ namespace d3dretrace {
 
 
 extern const retrace::Entry ddraw_callbacks[];
+extern const retrace::Entry ddraw_misc_callbacks[];
 extern const retrace::Entry d3d8_callbacks[];
 extern const retrace::Entry d3d9_callbacks[];
 extern const retrace::Entry dxgi_callbacks[];
@@ -89,10 +90,13 @@ public:
 
 
 HWND
-createWindow(int width, int height);
+createWindow(int width, int height, DWORD dwStyle = 0, DWORD dwExStyle = 0);
 
 HWND
-createWindow(HWND hWnd, int width, int height);
+createWindow(HWND hWnd, int width, int height, DWORD dwStyle = 0, DWORD dwExStyle = 0);
+
+void
+restyleWindow(HWND hWnd, DWORD dwStyle, DWORD dwExStyle);
 
 void
 resizeWindow(HWND hWnd, int width, int height);
@@ -100,6 +104,8 @@ resizeWindow(HWND hWnd, int width, int height);
 bool
 processEvents(void);
 
+void
+setHDC(unsigned long long id, HDC hDC);
 
 } /* namespace d3dretrace */
 

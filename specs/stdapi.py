@@ -341,12 +341,15 @@ class Struct(Type):
         return memberNames.index(name)
 
 
-def Union(kindExpr, kindTypes, contextLess=True, bitCmpMode=False):
+def Union(kindExpr, kindTypes, contextLess=True):
     switchTypes = []
     for kindCase, kindType, kindMemberName in kindTypes:
-        switchType = Struct(None, [(kindType, kindMemberName)])
+        if kindType is None:
+            switchType = Struct(None, [])
+        else:
+            switchType = Struct(None, [(kindType, kindMemberName)])
         switchTypes.append((kindCase, switchType))
-    return Polymorphic(kindExpr, switchTypes, contextLess=contextLess, bitCmpMode=bitCmpMode)
+    return Polymorphic(kindExpr, switchTypes, contextLess=contextLess)
 
 class Alias(Type):
 
@@ -566,7 +569,7 @@ def OpaqueBlob(type, size):
 
 class Polymorphic(Type):
 
-    def __init__(self, switchExpr, switchTypes, defaultType=None, contextLess=True, bitCmpMode=False):
+    def __init__(self, switchExpr, switchTypes, defaultType=None, contextLess=True):
         if defaultType is None:
             Type.__init__(self, None)
             contextLess = False
@@ -576,7 +579,6 @@ class Polymorphic(Type):
         self.switchTypes = switchTypes
         self.defaultType = defaultType
         self.contextLess = contextLess
-        self.bitCmpMode = bitCmpMode
 
     def visit(self, visitor, *args, **kwargs):
         return visitor.visitPolymorphic(self, *args, **kwargs)
@@ -590,10 +592,7 @@ class Polymorphic(Type):
             types.append(self.defaultType)
 
         for expr, type in self.switchTypes:
-            if self.bitCmpMode:
-                case = '%s' % expr
-            else:
-                case = 'case %s' % expr
+            case = 'case %s' % expr
             try:
                 i = types.index(type)
             except ValueError:
@@ -800,7 +799,7 @@ class Rebuilder(Visitor):
             defaultType = None
         else:
             defaultType = self.visit(polymorphic.defaultType)
-        return Polymorphic(switchExpr, switchTypes, defaultType, polymorphic.contextLess, polymorphic.bitCmpMode)
+        return Polymorphic(switchExpr, switchTypes, defaultType, polymorphic.contextLess)
 
 
 class MutableRebuilder(Rebuilder):

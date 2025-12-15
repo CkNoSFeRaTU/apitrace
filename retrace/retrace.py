@@ -111,6 +111,9 @@ class ValueAllocator(stdapi.Visitor):
 
 class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
 
+    def visitVoid(self, void, *args, **kwargs):
+        pass
+
     def visitLiteral(self, literal, lvalue, rvalue):
         print('    %s = (%s).to%s();' % (lvalue, rvalue, literal.kind))
 
@@ -246,38 +249,25 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
 
     def visitPolymorphic(self, polymorphic, lvalue, rvalue):
         if polymorphic.defaultType is None:
-            if polymorphic.bitCmpMode:
-                switchExpr = self.expand(polymorphic.switchExpr)
-                operator = "if"
-                for cases, type in polymorphic.iterSwitch():
-                    for case in cases:
-                        print('    %s ((%s & (%s)) == %s) {' % (operator, switchExpr, case, case))
-                    caseLvalue = lvalue
-                    if type.expr is not None:
-                        caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
+            switchExpr = self.expand(polymorphic.switchExpr)
+            print(r'    switch (%s) {' % switchExpr)
+            for cases, type in polymorphic.iterSwitch():
+                for case in cases:
+                    print(r'    %s:' % case)
+                caseLvalue = lvalue
+                if type.expr is not None:
+                    caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
+                print(r'        {')
+                try:
                     self.visit(type, caseLvalue, rvalue)
-                    print('    }')
-                    operator = "else if"
-            else:
-                switchExpr = self.expand(polymorphic.switchExpr)
-                print(r'    switch (%s) {' % switchExpr)
-                for cases, type in polymorphic.iterSwitch():
-                    for case in cases:
-                        print(r'    %s:' % case)
-                    caseLvalue = lvalue
-                    if type.expr is not None:
-                        caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
-                    print(r'        {')
-                    try:
-                        self.visit(type, caseLvalue, rvalue)
-                    finally:
-                        print(r'        }')
-                    print(r'        break;')
-                if polymorphic.defaultType is None:
-                    print(r'    default:')
-                    print(r'        retrace::warning(call) << "unexpected polymorphic case" << %s << "\n";' % (switchExpr,))
-                    print(r'        break;')
-                print(r'    }')
+                finally:
+                    print(r'        }')
+                print(r'        break;')
+            if polymorphic.defaultType is None:
+                print(r'    default:')
+                print(r'        retrace::warning(call) << "unexpected polymorphic case " << %s << " in %s\n";' % (switchExpr, str(lvalue)))
+                print(r'        break;')
+            print(r'    }')
         else:
             self.visit(polymorphic.defaultType, lvalue, rvalue)
     

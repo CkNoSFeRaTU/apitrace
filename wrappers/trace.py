@@ -174,6 +174,9 @@ class ValueSerializer(stdapi.Visitor, stdapi.ExpanderMixin):
     ComplexValueSerializer visitor above.
     '''
 
+    def visitVoid(self, void, *args, **kwargs):
+        pass
+
     def visitLiteral(self, literal, instance):
         print('    trace::localWriter.write%s(%s);' % (literal.kind, instance))
 
@@ -329,22 +332,6 @@ class ValueSerializer(stdapi.Visitor, stdapi.ExpanderMixin):
     def visitPolymorphic(self, polymorphic, instance):
         if polymorphic.contextLess:
             print('    _write__%s(%s, %s);' % (polymorphic.tag, polymorphic.switchExpr, instance))
-        elif polymorphic.bitCmpMode:
-            switchExpr = self.expand(polymorphic.switchExpr)
-            operator = "if"
-            for cases, type in polymorphic.iterSwitch():
-                for case in cases:
-                    print('    %s ((%s & (%s)) == %s) {' % (operator, switchExpr, case, case))
-                caseInstance = instance
-                if type.expr is not None:
-                    caseInstance = 'static_cast<%s>(%s)' % (type, caseInstance)
-                self.visit(type, caseInstance)
-                print('    }')
-                operator = "else if"
-            if polymorphic.defaultType is None:
-                print(r'    else {')
-                print(r'        trace::localWriter.writeNull();')
-                print(r'    }')
         else:
             switchExpr = self.expand(polymorphic.switchExpr)
             print('    switch (%s) {' % switchExpr)
@@ -358,7 +345,7 @@ class ValueSerializer(stdapi.Visitor, stdapi.ExpanderMixin):
                 print('        break;')
             if polymorphic.defaultType is None:
                 print(r'    default:')
-                print(r'        os::log("apitrace: warning: %%s: unexpected polymorphic case %%i\n", __FUNCTION__, (int)%s);' % (switchExpr,))
+                print(r'        os::log("apitrace: warning: %%s: unexpected polymorphic case %%i\n", __FUNCTION__, static_cast<int>(%s));' % (switchExpr,))
                 print(r'        trace::localWriter.writeNull();')
                 print(r'        break;')
             print('    }')
@@ -420,10 +407,24 @@ class ValueWrapper(stdapi.Traverser, stdapi.ExpanderMixin):
     def visitInterfacePointer(self, interface, instance):
         print("    Wrap%s::_wrap(__FUNCTION__, &%s);" % (interface.name, instance))
     
-    def visitPolymorphic(self, type, instance):
-        # XXX: There might be polymorphic values that need wrapping in the future
-        #raise NotImplementedError
-        pass
+    def visitPolymorphic(self, polymorphic, instance):
+        # There are polymorphic values that need wrapping, for example, ddraw unions absolutely requires this.
+        switchExpr = self.expand(polymorphic.switchExpr)
+        print('    switch (%s) {' % switchExpr)
+        for cases, type in polymorphic.iterSwitch():
+            for case in cases:
+                print('    %s:' % case)
+            caseInstance = instance
+            if type.expr is not None:
+                caseInstance = 'static_cast<%s>(%s)' % (type, caseInstance)
+            self.visit(type, caseInstance)
+            print('        break;')
+        if polymorphic.defaultType is None:
+            print(r'    default:')
+            print(r'        os::log("apitrace: warning: %%s: unexpected polymorphic case %%i\n", __FUNCTION__, static_cast<int>(%s));' % (switchExpr,))
+            print(r'        trace::localWriter.writeNull();')
+            print(r'        break;')
+        print('    }')
 
 class ValueUnwrapper(ValueWrapper):
     '''Reverse of ValueWrapper.'''
@@ -908,7 +909,7 @@ class Tracer:
         print('}')
         print()
 
-    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None, beforeCall = None, afterCall = None):
+    def implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = None, callFlags = "trace::FLAG_NONE", beforeCall = None, afterCall = None):
         assert not method.internal
 
         sigName = interface.name + '::' + method.sigName()
@@ -917,7 +918,7 @@ class Tracer:
         print('    static const char * _args[%u] = {%s};' % (numArgs, ', '.join(['"this"'] + ['"%s"' % arg.name for arg in method.args])))
         print('    static const trace::FunctionSig _sig = {%u, "%s", %u, _args};' % (self.getFunctionSigId(), sigName, numArgs))
 
-        print('    unsigned _call = trace::localWriter.beginEnter(&_sig);')
+        print('    unsigned _call = trace::localWriter.beginEnter(&_sig, %s);' % callFlags)
         print('    trace::localWriter.beginArg(0);')
         print('    trace::localWriter.writePointer((uintptr_t)m_pInstance);')
         print('    trace::localWriter.endArg();')
@@ -1024,7 +1025,7 @@ class Tracer:
 
     def fake_call(self, function, args):
         print('        {')
-        print('            unsigned _fake_call = trace::localWriter.beginEnter(&_%s_sig, true);' % (function.name,))
+        print('            unsigned _fake_call = trace::localWriter.beginEnter(&_%s_sig, trace::FLAG_FAKE);' % (function.name,))
         for arg, instance in zip(function.args, args):
             assert not arg.output
             print('            trace::localWriter.beginArg(%u);' % (arg.index,))
