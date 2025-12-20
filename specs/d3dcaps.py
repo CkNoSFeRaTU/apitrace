@@ -26,27 +26,16 @@
 """d3dcaps.h"""
 
 from .winapi import *
+from .ddraw import *
 from .d3dtypes import *
 
-D3DTRANSFORMCAPS = Flags(DWORD, [
+D3DTRANSFMCAPS = Flags(DWORD, [
     "D3DTRANSFORMCAPS_CLIP",
 ])
 
 D3DTRANSFORMCAPS = Struct("D3DTRANSFORMCAPS", [
     (DWORD, "dwSize"),
-    (DWORD, "dwCaps"),
-])
-
-D3DLIGHTINGCAPS = Struct("D3DLIGHTINGCAPS", [
-    (DWORD, "dwSize"),
-    (DWORD, "dwCaps"),
-    (DWORD, "dwLightingModel"),
-    (DWORD, "dwNumLights"),
-])
-
-D3DLIGHTINGMODEL = Flags(DWORD, [
-    "D3DLIGHTINGMODEL_RGB",
-    "D3DLIGHTINGMODEL_MONO",
+    (D3DTRANSFMCAPS, "dwCaps"),
 ])
 
 D3DLIGHTCAPS = Flags(DWORD, [
@@ -57,21 +46,16 @@ D3DLIGHTCAPS = Flags(DWORD, [
     "D3DLIGHTCAPS_GLSPOT",
 ])
 
-D3DPRIMCAPS = Struct("D3DPRIMCAPS", [
+D3DLIGHTINGMODEL = Flags(DWORD, [
+    "D3DLIGHTINGMODEL_RGB",
+    "D3DLIGHTINGMODEL_MONO",
+])
+
+D3DLIGHTINGCAPS = Struct("D3DLIGHTINGCAPS", [
     (DWORD, "dwSize"),
-    (DWORD, "dwMiscCaps"),
-    (DWORD, "dwRasterCaps"),
-    (DWORD, "dwZCmpCaps"),
-    (DWORD, "dwSrcBlendCaps"),
-    (DWORD, "dwDestBlendCaps"),
-    (DWORD, "dwAlphaCmpCaps"),
-    (DWORD, "dwShadeCaps"),
-    (DWORD, "dwTextureCaps"),
-    (DWORD, "dwTextureFilterCaps"),
-    (DWORD, "dwTextureBlendCaps"),
-    (DWORD, "dwTextureAddressCaps"),
-    (DWORD, "dwStippleWidth"),
-    (DWORD, "dwStippleHeight"),
+    (D3DLIGHTCAPS, "dwCaps"),
+    (D3DLIGHTINGMODEL, "dwLightingModel"),
+    (DWORD, "dwNumLights"),
 ])
 
 D3DPMISCCAPS = Flags(DWORD, [
@@ -82,6 +66,12 @@ D3DPMISCCAPS = Flags(DWORD, [
     "D3DPMISCCAPS_CULLNONE",
     "D3DPMISCCAPS_CULLCW",
     "D3DPMISCCAPS_CULLCCW",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DPMISCCAPS_COLORWRITEENABLE",
+    "D3DPMISCCAPS_CLIPPLANESCALEDPOINTS",
+    "D3DPMISCCAPS_CLIPTLVERTS",
+    "D3DPMISCCAPS_TSSARGTEMP",
+    "D3DPMISCCAPS_BLENDOP",
 ])
 
 D3DXD3DPRASTERCAPSXX = Flags(DWORD, [
@@ -107,6 +97,9 @@ D3DXD3DPRASTERCAPSXX = Flags(DWORD, [
     "D3DPRASTERCAPS_TRANSLUCENTSORTINDEPENDENT",
     "D3DPRASTERCAPS_WFOG",
     "D3DPRASTERCAPS_ZFOG",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DPRASTERCAPS_COLORPERSPECTIVE",
+    "D3DPRASTERCAPS_STRETCHBLTMULTISAMPLE",
 ])
 
 D3DPCMPCAPS = Flags(DWORD, [
@@ -173,6 +166,13 @@ D3DPTEXTURECAPS = Flags(DWORD, [
     "D3DPTEXTURECAPS_PROJECTED",
     "D3DPTEXTURECAPS_CUBEMAP",
     "D3DPTEXTURECAPS_COLORKEYBLEND",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DPTEXTURECAPS_VOLUMEMAP",
+    "D3DPTEXTURECAPS_MIPMAP",
+    "D3DPTEXTURECAPS_MIPVOLUMEMAP",
+    "D3DPTEXTURECAPS_MIPCUBEMAP",
+    "D3DPTEXTURECAPS_CUBEMAP_POW2",
+    "D3DPTEXTURECAPS_VOLUMEMAP_POW2",
 ])
 
 D3DPTFILTERCAPS = Flags(DWORD, [
@@ -211,6 +211,8 @@ D3DPTADDRESSCAPS = Flags(DWORD, [
     "D3DPTADDRESSCAPS_CLAMP",
     "D3DPTADDRESSCAPS_BORDER",
     "D3DPTADDRESSCAPS_INDEPENDENTUV",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DPTADDRESSCAPS_MIRRORONCE",
 ])
 
 D3DSTENCILCAPS = Flags(DWORD, [
@@ -249,11 +251,33 @@ D3DTEXOPCAPS = Flags(DWORD, [
     "D3DTEXOPCAPS_BUMPENVMAP",
     "D3DTEXOPCAPS_BUMPENVMAPLUMINANCE",
     "D3DTEXOPCAPS_DOTPRODUCT3",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DTEXOPCAPS_MULTIPLYADD",
+    "D3DTEXOPCAPS_LERP",
+])
+
+D3DPRIMCAPS = Struct("D3DPRIMCAPS", [
+    (DWORD, "dwSize"),
+    (D3DPMISCCAPS, "dwMiscCaps"),
+    (D3DXD3DPRASTERCAPSXX, "dwRasterCaps"),
+    (D3DPCMPCAPS, "dwZCmpCaps"),
+    (D3DPBLENDCAPS, "dwSrcBlendCaps"),
+    (D3DPBLENDCAPS, "dwDestBlendCaps"),
+    (D3DPCMPCAPS, "dwAlphaCmpCaps"),
+    (D3DPSHADECAPS, "dwShadeCaps"),
+    (D3DPTEXTURECAPS, "dwTextureCaps"),
+    (D3DPTFILTERCAPS, "dwTextureFilterCaps"),
+    (D3DPBLENDCAPS, "dwTextureBlendCaps"),
+    (D3DPTADDRESSCAPS, "dwTextureAddressCaps"),
+    (DWORD, "dwStippleWidth"),
+    (DWORD, "dwStippleHeight"),
 ])
 
 D3DFVFCAPS = Flags(DWORD, [
     "D3DFVFCAPS_TEXCOORDCOUNTMASK",
     "D3DFVFCAPS_DONOTSTRIPELEMENTS",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DFVFCAPS_PSIZE",
 ])
 
 D3DDD = Flags(DWORD, [
@@ -290,6 +314,12 @@ D3DDEVCAPS = Flags(DWORD, [
     "D3DDEVCAPS_HWTRANSFORMANDLIGHT",
     "D3DDEVCAPS_CANBLTSYSTONONLOCAL",
     "D3DDEVCAPS_HWRASTERIZATION",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DDEVCAPS_PUREDEVICE",
+    "D3DDEVCAPS_QUINTICRTPATCHES",
+    "D3DDEVCAPS_RTPATCHES",
+    "D3DDEVCAPS_RTPATCHHANDLEZERO",
+    "D3DDEVCAPS_NPATCHES",
 ])
 
 D3DVTXPCAPS = Flags(DWORD, [
@@ -299,6 +329,9 @@ D3DVTXPCAPS = Flags(DWORD, [
     "D3DVTXPCAPS_DIRECTIONALLIGHTS",
     "D3DVTXPCAPS_POSITIONALLIGHTS",
     "D3DVTXPCAPS_LOCALVIEWER",
+    # d3d8+ flags whose technically not valid in d3d but drivers report them anyway
+    "D3DVTXPCAPS_TWEENING",
+    "D3DVTXPCAPS_NO_VSDT_UBYTE4",
 ])
 
 D3DFDS = Flags(DWORD, [
@@ -322,7 +355,7 @@ D3DFDS = Flags(DWORD, [
 
 D3DFINDDEVICESEARCH = Struct("D3DFINDDEVICESEARCH", [
     (DWORD, "dwSize"),
-    (DWORD, "dwFlags"),
+    (D3DFDS, "dwFlags"),
     (BOOL, "bHardware"),
     (D3DCOLORMODEL, "dcmColorModel"),
     (GUID, "guid"),
@@ -330,15 +363,6 @@ D3DFINDDEVICESEARCH = Struct("D3DFINDDEVICESEARCH", [
     (D3DPRIMCAPS, "dpcPrimCaps"),
 ])
 LPD3DFINDDEVICESEARCH = Pointer(D3DFINDDEVICESEARCH)
-
-D3DEXECUTEBUFFERDESC = Struct("D3DEXECUTEBUFFERDESC", [
-    (DWORD, "dwSize"),
-    (DWORD, "dwFlags"),
-    (DWORD, "dwCaps"),
-    (DWORD, "dwBufferSize"),
-    (LPVOID, "lpData"),
-])
-LPD3DEXECUTEBUFFERDESC = Pointer(D3DEXECUTEBUFFERDESC)
 
 D3DDEB = Flags(DWORD, [
     "D3DDEB_BUFSIZE",
@@ -351,6 +375,15 @@ D3DDEBCAPS = Flags(DWORD, [
     "D3DDEBCAPS_VIDEOMEMORY",
     "D3DDEBCAPS_MEM",
 ])
+
+D3DEXECUTEBUFFERDESC = Struct("D3DEXECUTEBUFFERDESC", [
+    (DWORD, "dwSize"),
+    (D3DDEB, "dwFlags"),
+    (D3DDEBCAPS, "dwCaps"),
+    (DWORD, "dwBufferSize"),
+    (LPVOID, "lpData"),
+])
+LPD3DEXECUTEBUFFERDESC = Pointer(D3DEXECUTEBUFFERDESC)
 
 D3DDEVINFO_TEXTUREMANAGER = Struct("D3DDEVINFO_TEXTUREMANAGER", [
     (BOOL, "bThrashing"),
@@ -381,16 +414,16 @@ D3DDEVINFO_TEXTURING = Struct("D3DDEVINFO_TEXTURING", [
 
 D3DDEVICEDESC = Struct("D3DDEVICEDESC", [
     (DWORD, "dwSize"),
-    (DWORD, "dwFlags"),
+    (D3DDD, "dwFlags"),
     (D3DCOLORMODEL, "dcmColorModel"),
-    (DWORD, "dwDevCaps"),
+    (D3DDEVCAPS, "dwDevCaps"),
     (D3DTRANSFORMCAPS, "dtcTransformCaps"),
     (BOOL, "bClipping"),
     (D3DLIGHTINGCAPS, "dlcLightingCaps"),
     (D3DPRIMCAPS, "dpcLineCaps"),
     (D3DPRIMCAPS, "dpcTriCaps"),
-    (DWORD, "dwDeviceRenderBitDepth"),
-    (DWORD, "dwDeviceZBufferBitDepth"),
+    (DirectDrawBitDepthFlags, "dwDeviceRenderBitDepth"),
+    (DirectDrawBitDepthFlags, "dwDeviceZBufferBitDepth"),
     (DWORD, "dwMaxBufferSize"),
     (DWORD, "dwMaxVertexCount"),
     (DWORD, "dwMinTextureWidth"),
@@ -409,20 +442,20 @@ D3DDEVICEDESC = Struct("D3DDEVICEDESC", [
     (D3DVALUE, "dvGuardBandRight"),
     (D3DVALUE, "dvGuardBandBottom"),
     (D3DVALUE, "dvExtentsAdjust"),
-    (DWORD, "dwStencilCaps"),
-    (DWORD, "dwFVFCaps"),
-    (DWORD, "dwTextureOpCaps"),
+    (D3DSTENCILCAPS, "dwStencilCaps"),
+    (D3DFVFCAPS, "dwFVFCaps"),
+    (D3DTEXOPCAPS, "dwTextureOpCaps"),
     (WORD, "wMaxTextureBlendStages"),
     (WORD, "wMaxSimultaneousTextures"),
 ])
 LPD3DDEVICEDESC = Pointer(D3DDEVICEDESC)
 
 D3DDEVICEDESC7 = Struct("D3DDEVICEDESC7", [
-    (DWORD, "dwDevCaps"),
+    (D3DDEVCAPS, "dwDevCaps"),
     (D3DPRIMCAPS, "dpcLineCaps"),
     (D3DPRIMCAPS, "dpcTriCaps"),
-    (DWORD, "dwDeviceRenderBitDepth"),
-    (DWORD, "dwDeviceZBufferBitDepth"),
+    (DirectDrawBitDepthFlags, "dwDeviceRenderBitDepth"),
+    (DirectDrawBitDepthFlags, "dwDeviceZBufferBitDepth"),
     (DWORD, "dwMinTextureWidth"),
     (DWORD, "dwMinTextureHeight"),
     (DWORD, "dwMaxTextureWidth"),
@@ -435,9 +468,9 @@ D3DDEVICEDESC7 = Struct("D3DDEVICEDESC7", [
     (D3DVALUE, "dvGuardBandRight"),
     (D3DVALUE, "dvGuardBandBottom"),
     (D3DVALUE, "dvExtentsAdjust"),
-    (DWORD, "dwStencilCaps"),
-    (DWORD, "dwFVFCaps"),
-    (DWORD, "dwTextureOpCaps"),
+    (D3DSTENCILCAPS, "dwStencilCaps"),
+    (D3DFVFCAPS, "dwFVFCaps"),
+    (D3DTEXOPCAPS, "dwTextureOpCaps"),
     (WORD, "wMaxTextureBlendStages"),
     (WORD, "wMaxSimultaneousTextures"),
     (DWORD, "dwMaxActiveLights"),
@@ -445,7 +478,7 @@ D3DDEVICEDESC7 = Struct("D3DDEVICEDESC7", [
     (GUID, "deviceGUID"),
     (WORD, "wMaxUserClipPlanes"),
     (WORD, "wMaxVertexBlendMatrices"),
-    (DWORD, "dwVertexProcessingCaps"),
+    (D3DVTXPCAPS, "dwVertexProcessingCaps"),
     (DWORD, "dwReserved1"),
     (DWORD, "dwReserved2"),
     (DWORD, "dwReserved3"),

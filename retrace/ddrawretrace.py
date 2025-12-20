@@ -42,8 +42,6 @@ class D3DRetracer(Retracer):
         print('static HWND g_hWnd{0};')
         print('static int g_width = 0, g_height = 0;');
         print('static LPDIRECTDRAWCLIPPER g_clipper = nullptr;')
-        #print('static bool g_clipper = nullptr;')
-        print('static LPDIRECTDRAWSURFACE7 g_primary = nullptr;')
         print()
 
         Retracer.retraceApi(self, api)
@@ -60,12 +58,13 @@ class D3DRetracer(Retracer):
 
         # notify frame has been completed
         # process events after presents
-        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
+        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'BltFast', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
             if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                 print(r'    DDSCAPS2 ddsCaps;')
             else:
                 print(r'    DDSCAPS ddsCaps;')
-            print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps)) &&')
+            print(r'    HRESULT hr = _this->GetCaps(&ddsCaps);')
+            print(r'    if (SUCCEEDED(hr) &&')
             print(r'        (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
             print(r'        retrace::frameComplete(call);')
             print(r'        d3dretrace::processEvents();')
@@ -78,8 +77,8 @@ class D3DRetracer(Retracer):
         hWndArg = method.getArgByType(HWND)
         if hWndArg is not None:
             if method.name == "SetCooperativeLevel":
-                print(r'    g_hWnd = d3dretrace::createWindow(g_hWnd, g_width ? g_width : 640, g_height ? g_height : 480, \
-                        dwFlags & DDSCL_FULLSCREEN ? WS_POPUP | WS_VISIBLE : 0, dwFlags & DDSCL_FULLSCREEN ? WS_EX_APPWINDOW : 0);')
+                print(r'    g_hWnd = d3dretrace::createWindow(g_hWnd, g_width ? g_width : 640, g_height ? g_height : 480,')
+                print(r'        dwFlags & DDSCL_FULLSCREEN ? WS_POPUP | WS_VISIBLE : 0, dwFlags & DDSCL_FULLSCREEN ? WS_EX_APPWINDOW : 0);')
                 print(r'    %s = g_hWnd;' % hWndArg.name)
                 print(r'    _HWND_map[static_cast<HWND>((call.arg(1)).toPointer())] = g_hWnd;')
             else:
@@ -99,7 +98,7 @@ class D3DRetracer(Retracer):
         if interface.name.startswith('IDirectDrawSurface'):
             # Clipper adjustments
             if method.name == 'Blt':
-                print(r'    if ((ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) && lpDestRect) {')
+                print(r'    if (SUCCEEDED(hr) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) && lpDestRect) {')
                 print(r'        size_t n_width = (*lpDestRect).right - (*lpDestRect).left;')
                 print(r'        size_t n_height = (*lpDestRect).bottom - (*lpDestRect).top;')
                 print(r'        if (g_clipper && (n_width != g_width || n_height != g_height)) {')

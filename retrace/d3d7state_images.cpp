@@ -88,92 +88,109 @@ const char *
 formatToString(D3DFORMAT fmt);
 
 static D3DFORMAT
-convertFormat(const DDPIXELFORMAT & ddpfPixelFormat)
+convertFormat(const DDPIXELFORMAT & ddpf)
 {
-    if (ddpfPixelFormat.dwSize != sizeof ddpfPixelFormat) {
+    if (ddpf.dwSize != sizeof(ddpf)) {
         return D3DFMT_UNKNOWN;
     }
 
-    switch (ddpfPixelFormat.dwFlags) {
-    case DDPF_RGB:
-        switch (ddpfPixelFormat.dwRGBBitCount) {
+    bool hasAlphaPixels = ddpf.dwFlags & DDPF_ALPHAPIXELS;
+    if (ddpf.dwFlags & DDPF_RGB) {
+        switch (ddpf.dwRGBBitCount) {
         case 8:
-            return (ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXED8) ? D3DFMT_P8 : D3DFMT_R3G3B2;
-        case 16:
-            switch (ddpfPixelFormat.dwRBitMask) {
-            case (0x0F << 8):
-                return D3DFMT_A4R4G4B4;
-            case (0x1F << 10):
-                return (ddpfPixelFormat.dwRGBAlphaBitMask) ? D3DFMT_A1R5G5B5 : D3DFMT_X1R5G5B5;
-            case (0x1F << 11):
-                return D3DFMT_R5G6B5;
-            break;
+            if (ddpf.dwFlags & DDPF_PALETTEINDEXED8) {
+                return D3DFMT_P8;
+            } else if (ddpf.dwRBitMask == 0xe0 && ddpf.dwGBitMask == 0x1c && ddpf.dwBBitMask == 0x03) {
+                return D3DFMT_R3G3B2;
             }
-        case 32:
-            return (ddpfPixelFormat.dwRGBAlphaBitMask) ? D3DFMT_A8R8G8B8 : D3DFMT_X8R8G8B8;
-        }
-        break;
-    case DDPF_ZBUFFER:
-    case DDPF_ZBUFFER | DDPF_STENCILBUFFER:
-        switch (ddpfPixelFormat.dwZBufferBitDepth) {
+            break;
         case 16:
-            if (ddpfPixelFormat.dwZBitMask == 0x0000ffff) {
+            if (!hasAlphaPixels && ddpf.dwRBitMask == 0xf800 && ddpf.dwGBitMask == 0x07e0 && ddpf.dwBBitMask == 0x001f) {
+                return D3DFMT_R5G6B5;
+            } else if (ddpf.dwRBitMask == 0x7c00 && ddpf.dwGBitMask == 0x03e0 && ddpf.dwBBitMask == 0x001f) {
+                if (hasAlphaPixels && ddpf.dwAlphaBitDepth == 0x8000) {
+                    return D3DFMT_A1R5G5B5;
+                } else if (!hasAlphaPixels) {
+                    return D3DFMT_X1R5G5B5;
+                }
+            } else if (hasAlphaPixels && ddpf.dwRGBAlphaBitMask == 0xf000 && ddpf.dwGBitMask == 0x00f0 && ddpf.dwBBitMask == 0x000f) {
+                return D3DFMT_A4R4G4B4;
+            }
+            break;
+        case 32:
+            if (ddpf.dwRBitMask == 0x00ff0000 && ddpf.dwGBitMask == 0x0000ff00 && ddpf.dwBBitMask == 0x000000ff) {
+                if (hasAlphaPixels && ddpf.dwRGBAlphaBitMask == 0xff000000) {
+                    return D3DFMT_A8R8G8B8;
+                } else if (!hasAlphaPixels) {
+                    return D3DFMT_X8R8G8B8;
+                }
+            }
+            break;
+        }
+    }
+
+    if (ddpf.dwFlags & DDPF_LUMINANCE) {
+        switch (ddpf.dwLuminanceBitCount) {
+        case 8:
+            if (hasAlphaPixels && ddpf.dwLuminanceAlphaBitMask == 0xf0 && ddpf.dwLuminanceBitMask == 0x0f) {
+                return D3DFMT_A4L4;
+            } else if (!hasAlphaPixels && ddpf.dwLuminanceBitMask == 0xff) {
+                return D3DFMT_L8;
+            }
+            break;
+        case 16:
+            if (hasAlphaPixels && ddpf.dwLuminanceAlphaBitMask == 0xff00 && ddpf.dwBumpLuminanceBitMask == 0x0f) {
+                return D3DFMT_A8L8;
+            }
+            break;
+        }
+    }
+
+    bool hasBumpLuminance = ddpf.dwFlags & DDPF_BUMPLUMINANCE;
+    if (ddpf.dwFlags & DDPF_BUMPDUDV) {
+        switch (ddpf.dwBumpBitCount) {
+        case 16:
+            if (!hasBumpLuminance && ddpf.dwBumpDuBitMask == 0x00ff && ddpf.dwBumpDvBitMask == 0xff00) {
+                return D3DFMT_V8U8;
+            } else if (hasBumpLuminance && ddpf.dwBumpLuminanceBitMask == 0xfc00 && ddpf.dwBumpDuBitMask == 0x001f && ddpf.dwBumpDvBitMask == 0x03e0) {
+                return D3DFMT_L6V5U5;
+            }
+            break;
+        case 32:
+            if (hasBumpLuminance && ddpf.dwBumpLuminanceBitMask == 0x00ff0000 && ddpf.dwBumpDuBitMask == 0x000000ff && ddpf.dwBumpDvBitMask == 0x0000ff00) {
+                return D3DFMT_X8L8V8U8;
+            }
+            break;
+        case DDPF_FOURCC:
+            return static_cast<D3DFORMAT>(ddpf.dwFourCC);
+        }
+    }
+
+    bool hasStencil = ddpf.dwFlags & DDPF_STENCILBUFFER;
+    if (ddpf.dwFlags & DDPF_ZBUFFER) {
+        switch (ddpf.dwZBufferBitDepth) {
+        case 16:
+            if (hasStencil && ddpf.dwStencilBitMask == 0x8000 && ddpf.dwStencilBitDepth == 1 && ddpf.dwZBitMask == 0x7fff) {
+                return D3DFMT_D15S1;
+            } else if (!hasStencil && ddpf.dwZBitMask == 0xffff) {
                 return D3DFMT_D16;
             }
             break;
+        case 24:
         case 32:
-            if (ddpfPixelFormat.dwZBitMask == 0x00ffffff) {
-                return D3DFMT_D24X8;
-            }
-            switch (ddpfPixelFormat.dwStencilBitMask) {
-            case 0:
-                return D3DFMT_D24X8;
-            case 0xFF:
-                return D3DFMT_D24S8;
-            case (DWORD(0xFF << 24)):
-                return D3DFMT_D24S8;
+            if (ddpf.dwZBitMask == 0x00ffffff) {
+                if (hasStencil && ddpf.dwStencilBitMask == 0xf0000000) {
+                    return D3DFMT_D24X4S4;
+                } else if (hasStencil && ddpf.dwStencilBitMask == 0xff000000) {
+                    return D3DFMT_D24S8;
+                } else if (!hasStencil) {
+                    return D3DFMT_D24X8;
+                }
+            } else if (!hasStencil && ddpf.dwZBitMask == 0xffffffff) {
+                return D3DFMT_D32;
             }
             break;
         }
-        break;
-    case DDPF_LUMINANCE:
-        switch (ddpfPixelFormat.dwLuminanceBitCount) {
-        case 8: {
-            switch (ddpfPixelFormat.dwLuminanceBitMask) {
-            case (0xF):
-                return D3DFMT_L8;
-            case (0x8):
-                return D3DFMT_A4L4;
-            }
-        }
-        case 16:
-            return D3DFMT_A8L8;
-        }
-        break;
-    case DDPF_BUMPDUDV:
-        switch (ddpfPixelFormat.dwBumpBitCount) {
-        case 16:
-          return ddpfPixelFormat.dwBumpLuminanceBitMask ? D3DFMT_L6V5U5 : D3DFMT_V8U8;
-        case 32:
-          return D3DFMT_X8L8V8U8;
-        }
-        break;
-    case DDPF_FOURCC:
-        switch (ddpfPixelFormat.dwFourCC) {
-        case D3DFMT_DXT1:
-            return static_cast<D3DFORMAT>(D3DFMT_DXT1);
-        case D3DFMT_DXT2:
-            return static_cast<D3DFORMAT>(D3DFMT_DXT2);
-        case D3DFMT_DXT3:
-            return static_cast<D3DFORMAT>(D3DFMT_DXT3);
-        case D3DFMT_DXT4:
-            return static_cast<D3DFORMAT>(D3DFMT_DXT4);
-        case D3DFMT_DXT5:
-            return static_cast<D3DFORMAT>(D3DFMT_DXT5);
-        case D3DFMT_YUY2:
-            return static_cast<D3DFORMAT>(D3DFMT_YUY2);
-        }
-        break;
     }
 
     return D3DFMT_UNKNOWN;
@@ -197,7 +214,7 @@ getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
     image::Image *image = NULL;
     D3DFORMAT Format = convertFormat(desc.ddpfPixelFormat);
     if (Format == D3DFMT_UNKNOWN) {
-        std::cerr << "warning: unsupported DDPIXELFORMAT\n";
+        std::cerr << "warning: DDPIXELFORMAT is unsupported, image skipped\n";
     } else {
         INT pitch = 0;
         if (desc.dwFlags & DDSD_PITCH) {
@@ -362,6 +379,59 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
     writer.endMember(); // textures
 }
 
+struct CBContext {
+    IDirect3DDevice7* pDevice;
+    StateWriter* writer;
+    struct {
+        uint8_t backbuffer;
+        uint8_t frontbuffer;
+        uint8_t primarysurface;
+        uint8_t offscreenplain;
+        uint8_t overlay;
+        uint8_t zbuffer;
+        uint8_t stencilbuffer;
+        uint8_t unknown;
+    } counters;
+};
+
+HRESULT CALLBACK
+EnumAttachedSurfacesCB(IDirectDrawSurface7* pSurface, DDSURFACEDESC2* desc, void* lpContext)
+{
+    CBContext* context = static_cast<CBContext*>(lpContext);
+    char label[128];
+
+    if (!pSurface || !desc || desc->dwWidth == 0 || desc->dwHeight == 0)
+        return DDENUMRET_OK;
+
+    if (desc->ddsCaps.dwCaps & DDSCAPS_FRONTBUFFER) {
+        _snprintf(label, sizeof label, "FRONTBUFFER_%u", context->counters.frontbuffer++);
+    } else if (desc->ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
+        _snprintf(label, sizeof label, "BACKBUFFER_%u", context->counters.backbuffer++);
+    } else if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+        _snprintf(label, sizeof label, "PRIMARYSURFACE_%u", context->counters.primarysurface++);
+    } else if (desc->ddsCaps.dwCaps & DDSCAPS_OFFSCREENPLAIN) {
+        _snprintf(label, sizeof label, "OFFSCREENPLAIN_%u", context->counters.offscreenplain++);
+    } else if (desc->ddsCaps.dwCaps & DDSCAPS_OVERLAY) {
+        _snprintf(label, sizeof label, "OVERLAY_%u", context->counters.overlay++);
+    } else if (desc->ddsCaps.dwCaps & DDSCAPS_ZBUFFER) {
+        if (desc->ddpfPixelFormat.dwFlags & DDPF_STENCILBUFFER)
+            _snprintf(label, sizeof label, "STENCILBUFFER_%u", context->counters.stencilbuffer++);
+        else
+            _snprintf(label, sizeof label, "ZBUFFER_%u", context->counters.zbuffer++);
+    } else {
+        _snprintf(label, sizeof label, "UNKNOWN_%u", context->counters.unknown++);
+    }
+    image::Image* image = getSurfaceImage(context->pDevice, pSurface);
+    if (image) {
+        context->writer->beginMember(label);
+        StateWriter::ImageDesc imgDesc;
+        imgDesc.depth = 1;
+        imgDesc.format = image->formatName;
+        context->writer->writeImage(image, imgDesc);
+        context->writer->endMember();
+        delete image;
+    }
+}
 
 void
 dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
@@ -377,81 +447,17 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
         image::Image *image;
         image = getSurfaceImage(pDevice, pRenderTarget);
         if (image) {
-            writer.beginMember("RENDER_TARGET_0");
+            writer.beginMember("RENDER_TARGET");
             StateWriter::ImageDesc imgDesc;
             imgDesc.depth = 1;
             imgDesc.format = image->formatName;
             writer.writeImage(image, imgDesc);
-            writer.endMember(); // RENDER_TARGET_*
+            writer.endMember(); // RENDER_TARGET
             delete image;
         }
 
-        // Search for a depth-stencil attachment
-        DDSCAPS2 ddsCaps;
-        ZeroMemory(&ddsCaps, sizeof ddsCaps);
-        ddsCaps.dwCaps = DDSCAPS_ZBUFFER;
-        com_ptr<IDirectDrawSurface7> pDepthStencil;
-        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pDepthStencil);
-        if (SUCCEEDED(hr) && pDepthStencil) {
-            image = getSurfaceImage(pDevice, pDepthStencil);
-            if (image) {
-                writer.beginMember("DEPTH_STENCIL");
-                StateWriter::ImageDesc imgDesc;
-                imgDesc.depth = 1;
-                imgDesc.format = image->formatName;
-                writer.writeImage(image, imgDesc);
-                writer.endMember(); // DEPTH_STENCIL
-                delete image;
-            }
-        }
-
-        ddsCaps.dwCaps = DDSCAPS_FRONTBUFFER;
-        com_ptr<IDirectDrawSurface7> pFrontBuffer;
-        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pFrontBuffer);
-        if (SUCCEEDED(hr) && pFrontBuffer) {
-            image = getSurfaceImage(pDevice, pFrontBuffer);
-            if (image) {
-                writer.beginMember("FRONT_BUFFER");
-                StateWriter::ImageDesc imgDesc;
-                imgDesc.depth = 1;
-                imgDesc.format = image->formatName;
-                writer.writeImage(image, imgDesc);
-                writer.endMember();
-                delete image;
-            }
-        }
-
-        ddsCaps.dwCaps = DDSCAPS_BACKBUFFER | DDSCAPS_FLIP;
-        com_ptr<IDirectDrawSurface7> pBackBuffer;
-        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pBackBuffer);
-        if (SUCCEEDED(hr) && pBackBuffer) {
-            image = getSurfaceImage(pDevice, pBackBuffer);
-            if (image) {
-                writer.beginMember("BACK_BUFFER");
-                StateWriter::ImageDesc imgDesc;
-                imgDesc.depth = 1;
-                imgDesc.format = image->formatName;
-                writer.writeImage(image, imgDesc);
-                writer.endMember();
-                delete image;
-            }
-        }
-
-        ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-        com_ptr<IDirectDrawSurface7> pPrimarySurface;
-        hr = pRenderTarget->GetAttachedSurface(&ddsCaps, &pPrimarySurface);
-        if (SUCCEEDED(hr) && pPrimarySurface) {
-            image = getSurfaceImage(pDevice, pPrimarySurface);
-            if (image) {
-                writer.beginMember("PRIMARY_SURFACE");
-                StateWriter::ImageDesc imgDesc;
-                imgDesc.depth = 1;
-                imgDesc.format = image->formatName;
-                writer.writeImage(image, imgDesc);
-                writer.endMember();
-                delete image;
-            }
-        }
+        struct CBContext context { pDevice, &writer, 0 };
+        pRenderTarget->EnumAttachedSurfaces(&context, &EnumAttachedSurfacesCB);
     }
 
     writer.endObject();

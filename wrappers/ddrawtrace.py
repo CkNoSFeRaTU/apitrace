@@ -48,6 +48,7 @@ class DDrawTracer(DllTracer):
         return variables
     def implementWrapperInterfaceMethodBody(self, interface, base, method):
         resultOverride = None
+        afterCall = None
         callFlags = "trace::FLAG_NONE"
 
         hWndArg = method.getArgByType(HWND)
@@ -59,7 +60,7 @@ class DDrawTracer(DllTracer):
                 print(r'    g_windowed = !(dwFlags & (DDSCL_FULLSCREEN|DDSCL_EXCLUSIVE));')
 
         # Endframe flag
-        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
+        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'BltFast', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
             if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                 print(r'    DDSCAPS2 ddsCaps;')
             else:
@@ -77,7 +78,7 @@ class DDrawTracer(DllTracer):
             callFlags = "callFlags"
 
         # Clipper negation
-        if interface.name.startswith("IDirectDrawSurface"):
+        if interface.name.startswith('IDirectDrawSurface'):
             if method.name == 'Blt':
                 # We shouldn't save coordinates whose depend on current window position to properly handle clipper on retrace
                 # So we invoke method earlier to decouple it from data saving in the trace
@@ -152,9 +153,26 @@ class DDrawTracer(DllTracer):
             print('        }')
             print('    }')
 
-        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags)
+        if interface.name == 'IDirect3DVertexBuffer7' and method.name == 'ProcessVerticesStrided':
+            print('    DWORD dwVertexType = 0;')
+            print('    D3DVERTEXBUFFERDESC desc;')
+            print('    ZeroMemory(&desc, sizeof(desc));')
+            print('    desc.dwSize = sizeof(desc);')
+            print('    if (SUCCEEDED(this->GetVertexBufferDesc(&desc))) {')
+            print('        dwVertexType = desc.dwFVF;')
+            print('    }')
 
-        if interface.name.startswith("IDirectDrawSurface"):
+        if method.name == 'Lock':
+            # Reset _DONOTWAIT flags. Otherwise they may fail, and we have no
+            # way to cope with it (other than retry).
+            mapFlagsArg = method.getArgByName('dwFlags')
+            if mapFlagsArg is not None:
+                print(r'    dwFlags &= ~DDLOCK_DONOTWAIT;')
+                print(r'    dwFlags |= DDLOCK_WAIT;')
+
+        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags, afterCall = afterCall)
+
+        if interface.name.startswith('IDirectDrawSurface'):
             if method.name == 'Blt':
                 # We need to restore destination rect to original state if we messed with it so application don't become confused on subsequent calls
                 print('    if (g_windowed && g_clipper && lpDestRect && (cPt.x || cPt.y)) {')
@@ -166,14 +184,19 @@ class DDrawTracer(DllTracer):
 
         if method.name == 'Lock':
             # FIXME: handle recursive locks
-            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
+            if interface.name.startswith('IDirectDrawSurface'):
                 print('    if (SUCCEEDED(_result) && !(dwFlags & DDLOCK_READONLY)) {')
+            #elif interface.name.startswith('IDirect3DVertexBuffer'):
+            #    print('    if (SUCCEEDED(_result) && !(dwFlags & DDLOCK_NOOVERWRITE)) {')
             else:
                 print('    if (SUCCEEDED(_result)) {')
-            if interface.name.startswith("IDirectDrawSurface") and method.name == 'Lock':
+            if interface.name.startswith('IDirectDrawSurface') and method.name == 'Lock':
                 print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[:-2]))
-            elif interface.name.startswith("IDirect3DVertexBuffer"):
+            elif interface.name.startswith('IDirect3DVertexBuffer'):
                 print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()[1:]))
+                #print('        if (dwFlags & DDLOCK_DISCARDCONTENTS) {')
+                #print('             memset(m_pbData, 0x00, _MappedSize);')
+                #print('        }')
             else:
                 print('        _getMapInfo(_this, %s, m_pbData, _MappedSize);' % ', '.join(method.argNames()))
             print('    } else {')

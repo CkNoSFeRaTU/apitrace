@@ -71,9 +71,11 @@ _getVertexSize(DWORD dwFVF) {
 #endif
     }
 
+#if DIRECT3D_VERSION >= 0x0600
     if (dwFVF & D3DFVF_NORMAL) {
         size += 3 * sizeof(FLOAT);
     }
+#endif
 #if DIRECT3D_VERSION >= 0x0800
     if (dwFVF & D3DFVF_PSIZE) {
         size += sizeof(FLOAT);
@@ -84,14 +86,18 @@ _getVertexSize(DWORD dwFVF) {
         size += sizeof(DWORD);
     }
 #endif
+#if DIRECT3D_VERSION >= 0x0600
     if (dwFVF & D3DFVF_DIFFUSE) {
         size += sizeof(D3DCOLOR);
     }
     if (dwFVF & D3DFVF_SPECULAR) {
         size += sizeof(D3DCOLOR);
     }
+#endif
 
+#if DIRECT3D_VERSION >= 0x0400
     DWORD dwNumTextures = (dwFVF & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+    if (dwNumTextures > 8) dwNumTextures = 8;
     for (DWORD CoordIndex = 0; CoordIndex < dwNumTextures; ++CoordIndex) {
         // See D3DFVF_TEXCOORDSIZE*
         DWORD dwTexCoordSize = (dwFVF >> (CoordIndex*2 + 16)) & 3;
@@ -110,6 +116,7 @@ _getVertexSize(DWORD dwFVF) {
             break;
         }
     }
+#endif
 
     assert((dwFVF & D3DFVF_RESERVED2) == 0);
 
@@ -258,14 +265,18 @@ _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
 
     UINT Width;
     UINT Height;
-    if (pRect) {
+    // Some games are sending non-NULL rects with garbage, especially on unlock. Let's be safe.
+    if (pRect && !(pRect->right > pDesc->dwWidth || pRect->left > pDesc->dwWidth
+            || pRect->bottom > pDesc->dwHeight || pRect->top > pDesc->dwHeight
+            || pRect->right - pRect->left > pDesc->dwWidth || pRect->right - pRect->left == 0
+            || pRect->bottom - pRect->top > pDesc->dwHeight || pRect->bottom - pRect->top == 0)) {
         Width  = pRect->right  - pRect->left;
         Height = pRect->bottom - pRect->top;
     } else {
         Width  = pDesc->dwWidth;
         Height = pDesc->dwHeight;
 
-        // When destination rect isn't specified so we are looking for a size of entire surface and dwLinearSize is valid
+        // When destination rect isn't specified and we are looking for a size of entire surface and dwLinearSize is valid
         // then just use it and skip our own calculations. DXT1-5 go this route in most cases.
         if (pDesc->dwFlags & DDSD_LINEARSIZE) {
             MappedSize = pDesc->dwLinearSize;
@@ -278,8 +289,8 @@ _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
 
 template<typename B>
 static inline void
-_getMapInfo(B* pBuffer, void **ppbData, DWORD* lpdwSize,
-            void * & pLockedData, size_t & MappedSize) {
+_getMapInfo(B* pBuffer, void** ppbData, DWORD* lpdwSize,
+            void*& pLockedData, size_t& MappedSize) {
     pLockedData = nullptr;
     MappedSize = 0;
 
@@ -288,6 +299,7 @@ _getMapInfo(B* pBuffer, void **ppbData, DWORD* lpdwSize,
     desc.dwSize = sizeof(desc);
     HRESULT hr = pBuffer->GetVertexBufferDesc(&desc);
     if (FAILED(hr)) {
+        os::log("failed to get vertex buffer descriptor");
         return;
     }
 

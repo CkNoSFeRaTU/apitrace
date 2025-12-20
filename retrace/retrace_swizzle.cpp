@@ -149,7 +149,6 @@ addRegion(trace::Call &call, unsigned long long address, void *buffer, unsigned 
     Region region;
     region.buffer = buffer;
     region.size = size;
-
     regionMap[address] = region;
 }
 
@@ -166,8 +165,11 @@ lookupRegion(unsigned long long address) {
         }
     }
 
-    // FIXME random issue with locks? investigate could due to multithreaded access from app during trace capture
-    //assert(contains(it, address));
+    // FIXME DirectDraw allows multiple locks with different rects, we are currently not handling that
+    if (!contains(it, address)) {
+        return regionMap.end();
+    }
+    assert(contains(it, address));
     return it;
 }
 
@@ -212,8 +214,13 @@ lookupAddress(unsigned long long address, Range &range) {
     if (it != regionMap.end()) {
         const Region & region = it->second;
         unsigned long long offset = address - it->first;
-        // FIXME random issue with locks? investigate could due to multithreaded access from app during trace capture
-        //assert(offset < region.size);
+        // FIXME: DirectDraw allows multiple locks with different rects, we are currently not handling that
+        if (offset >= region.size) {
+            range.ptr = nullptr;
+            range.len = 0;
+            return;
+        }
+        assert(offset < region.size);
 
         range.ptr = (char *)region.buffer + offset;
         range.len = region.size - offset;
