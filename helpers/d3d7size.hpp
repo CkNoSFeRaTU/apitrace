@@ -40,8 +40,6 @@ static inline size_t
 _getVertexSize(DWORD dwFVF) {
     size_t size = 0;
 
-    assert((dwFVF & D3DFVF_RESERVED0) == 0);
-
     switch (dwFVF & D3DFVF_POSITION_MASK) {
     case D3DFVF_XYZ:
         size += 3 * sizeof(FLOAT);
@@ -81,9 +79,9 @@ _getVertexSize(DWORD dwFVF) {
         size += sizeof(FLOAT);
     }
 #else
-    if (dwFVF & D3DFVF_RESERVED1) {
+    if (dwFVF & D3DFVF_RESERVED0) {
         // D3DLVERTEX
-        size += sizeof(DWORD);
+        size += sizeof(D3DLVERTEX);
     }
 #endif
 #if DIRECT3D_VERSION >= 0x0600
@@ -178,7 +176,7 @@ _getFormatSize(LPDDPIXELFORMAT fmt, size_t & BlockSize, UINT & BlockWidth, UINT 
                 break;
             default:
                 os::log("apitrace: warning: %s: unknown FOURCC DDPIXELFORMAT %lu (%c%c%c%c)\n", __FUNCTION__, fmt->dwFourCC,
-                    fmt->dwFourCC & 0xFF, (fmt->dwFourCC >> 8) & 0xFF, (fmt->dwFourCC >> 16) & 0xFF, (fmt->dwFourCC >> 24) & 0xFF);
+                    (char)(fmt->dwFourCC & 0xFF), (char)((fmt->dwFourCC >> 8) & 0xFF), (char)((fmt->dwFourCC >> 16) & 0xFF), (char)((fmt->dwFourCC >> 24) & 0xFF));
                 BlockSize = 0;
                 break;
         }
@@ -265,11 +263,8 @@ _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
 
     UINT Width;
     UINT Height;
-    // Some games are sending non-NULL rects with garbage, especially on unlock. Let's be safe.
-    if (pRect && !(pRect->right > pDesc->dwWidth || pRect->left > pDesc->dwWidth
-            || pRect->bottom > pDesc->dwHeight || pRect->top > pDesc->dwHeight
-            || pRect->right - pRect->left > pDesc->dwWidth || pRect->right - pRect->left == 0
-            || pRect->bottom - pRect->top > pDesc->dwHeight || pRect->bottom - pRect->top == 0)) {
+    // Some games are sending non-NULL rects with garbage, especially on unlock.
+    if (pRect) {
         Width  = pRect->right  - pRect->left;
         Height = pRect->bottom - pRect->top;
     } else {

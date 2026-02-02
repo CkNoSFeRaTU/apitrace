@@ -590,7 +590,7 @@ class Retracer:
             print(r'    ULONG _orig_result = call.ret->toUInt();')
             print(r'    if (_orig_result == 0 || _result == 0) {')
             print(r'        if (_orig_result != 0) {')
-            print(r'            retrace::warning(call) << "unexpected object destruction\n";')
+            print(r'            retrace::warning(call) << "unexpected object destruction, expected " << _orig_result << ", got " << _result << "\n";')
             print(r'        }')
             print(r'        // NOTE: Must not delete the object mapping here.  See')
             print(r'        // https://github.com/apitrace/apitrace/issues/462')

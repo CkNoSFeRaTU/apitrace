@@ -87,7 +87,7 @@ ConvertImage(D3DFORMAT SrcFormat,
 const char *
 formatToString(D3DFORMAT fmt);
 
-static D3DFORMAT
+D3DFORMAT
 convertFormat(const DDPIXELFORMAT & ddpf)
 {
     if (ddpf.dwSize != sizeof(ddpf)) {
@@ -202,20 +202,18 @@ getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
     HRESULT hr;
 
     DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    ZeroMemory(&desc, sizeof(desc));
     desc.dwSize = sizeof desc;
 
     hr = pSurface->Lock(NULL, &desc, DDLOCK_WAIT | DDLOCK_READONLY | DDLOCK_SURFACEMEMORYPTR | DDLOCK_NOSYSLOCK, NULL);
     if (FAILED(hr)) {
         std::cerr << "warning: IDirectDrawSurface7::Lock failed\n";
-        return NULL;
+        return nullptr;
     }
 
-    image::Image *image = NULL;
+    image::Image *image = nullptr;
     D3DFORMAT Format = convertFormat(desc.ddpfPixelFormat);
-    if (Format == D3DFMT_UNKNOWN) {
-        std::cerr << "warning: DDPIXELFORMAT is unsupported, image skipped\n";
-    } else {
+    {
         INT pitch = 0;
         if (desc.dwFlags & DDSD_PITCH) {
             pitch = desc.lPitch;
@@ -230,13 +228,17 @@ getSurfaceImage(IDirect3DDevice7 *pDevice, IDirectDrawSurface7 *pSurface)
             case(D3DFMT_DXT5):
                 pitch = ((desc.dwWidth + 3) / 4) * (128 / 8);
                 break;
+            default:
+                std::cerr << "warning: unsupported D3DFMT: " << Format << "\n";
+                pSurface->Unlock(NULL);
+                return nullptr;
             }
         }
 
         image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight);
     }
 
-    pSurface->Unlock(NULL);
+    pSurface->Unlock(nullptr);
 
     return image;
 }
@@ -268,16 +270,12 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
     for (DWORD Stage = 0; Stage < 8; ++Stage) {
         com_ptr<IDirectDrawSurface7> pTexture = nullptr;
         hr = pDevice->GetTexture(Stage, &pTexture);
-        if (FAILED(hr)) {
-            continue;
-        }
-
-        if (!pTexture) {
+        if (FAILED(hr) || !pTexture) {
             continue;
         }
 
         DDSURFACEDESC2 desc;
-        ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+        ZeroMemory(&desc, sizeof(desc));
         desc.dwSize = sizeof(desc);
         hr = pTexture->GetSurfaceDesc(&desc);
         if (FAILED(hr)) {
@@ -300,7 +298,7 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
         for (DWORD Face = 0; Face < NumFaces; ++Face) {
 
             // Start with base level of this face
-            LPDIRECTDRAWSURFACE7 pLevel = nullptr;
+            IDirectDrawSurface7 *pLevel = nullptr;
 
             if (isCube) {
                 DDSCAPS2 capsFace = {};
@@ -315,9 +313,7 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
                 image::Image *image = getSurfaceImage(pDevice, pLevel);
                 if (image) {
                     char label[128];
-                    _snprintf(label, sizeof label,
-                              "PS_RESOURCE_%lu_FACE_%lu",
-                               Stage, Face);
+                    _snprintf(label, sizeof label, "PS_RESOURCE_%lu_FACE_%lu", Stage, Face);
 
                     writer.beginMember(label);
                     StateWriter::ImageDesc imgDesc;
@@ -338,13 +334,9 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
                     char label[128];
 
                     if (isCube) {
-                        _snprintf(label, sizeof label,
-                                  "PS_RESOURCE_%lu_FACE_%lu_LEVEL_%lu",
-                                   Stage, Face, Level);
+                        _snprintf(label, sizeof label, "PS_RESOURCE_%lu_FACE_%lu_LEVEL_%lu", Stage, Face, Level);
                     } else {
-                        _snprintf(label, sizeof label,
-                                  "PS_RESOURCE_%lu_LEVEL_%lu",
-                                   Stage, Level);
+                        _snprintf(label, sizeof label, "PS_RESOURCE_%lu_LEVEL_%lu", Stage, Level);
                     }
 
                     writer.beginMember(label);
@@ -361,7 +353,7 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
                 capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
                 capsMips.dwCaps2 = isCube ? cubeFaceCaps[Face] : 0;
 
-                LPDIRECTDRAWSURFACE7 pNext = nullptr;
+                com_ptr<IDirectDrawSurface7> pNext = nullptr;
                 hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
 
                 pLevel->Release();
@@ -392,13 +384,23 @@ struct CBContext {
         uint8_t stencilbuffer;
         uint8_t unknown;
     } counters;
+
+    CBContext(IDirect3DDevice7* pDevice, StateWriter* writer) {
+      this->pDevice = pDevice;
+      this->writer = writer;
+      this->counters = {0};
+    };
+
+    ~CBContext() {};
 };
 
 HRESULT CALLBACK
 EnumAttachedSurfacesCB(IDirectDrawSurface7* pSurface, DDSURFACEDESC2* desc, void* lpContext)
 {
-    CBContext* context = static_cast<CBContext*>(lpContext);
     char label[128];
+    CBContext* context = static_cast<CBContext*>(lpContext);
+    if (!context)
+        return DDENUMRET_CANCEL;
 
     if (!pSurface || !desc || desc->dwWidth == 0 || desc->dwHeight == 0)
         return DDENUMRET_OK;
@@ -431,6 +433,8 @@ EnumAttachedSurfacesCB(IDirectDrawSurface7* pSurface, DDSURFACEDESC2* desc, void
         context->writer->endMember();
         delete image;
     }
+
+    return DDENUMRET_OK;
 }
 
 void
@@ -456,8 +460,8 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
             delete image;
         }
 
-        struct CBContext context { pDevice, &writer, 0 };
-        pRenderTarget->EnumAttachedSurfaces(&context, &EnumAttachedSurfacesCB);
+        auto context = std::make_unique<struct CBContext>(pDevice, &writer);
+        pRenderTarget->EnumAttachedSurfaces(context.get(), &EnumAttachedSurfacesCB);
     }
 
     writer.endObject();

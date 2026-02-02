@@ -48,7 +48,14 @@ class D3DRetracer(Retracer):
 
     def invokeInterfaceMethod(self, interface, method):
         # keep track of the last used device for state dumping
-        if interface.name in ('IDirect3DDevice7',):
+        if interface.name == 'IDirect3DDevice3':
+            if method.name == 'Release':
+                print(r'    if (call.ret->toUInt() == 0) {')
+                print(r'        d3d6Dumper.unbindDevice(_this);')
+                print(r'    }')
+            else:
+                print(r'    d3d6Dumper.bindDevice(_this);')
+        elif interface.name == 'IDirect3DDevice7':
             if method.name == 'Release':
                 print(r'    if (call.ret->toUInt() == 0) {')
                 print(r'        d3d7Dumper.unbindDevice(_this);')
@@ -214,6 +221,7 @@ def main():
     print(r'#include "d3d7size.hpp"')
     api.addModule(ddraw)
     print()
+    print('''static d3dretrace::D3DDumper<IDirect3DDevice3> d3d6Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice7> d3d7Dumper;''')
     print()
 

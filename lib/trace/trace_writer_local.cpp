@@ -76,7 +76,7 @@ LocalWriter::LocalWriter() :
 
     // Install the signal handlers as early as possible, to prevent
     // interfering with the application's signal handling.
-    os::setExceptionCallback(exceptionCallback);
+//    os::setExceptionCallback(exceptionCallback);
 }
 
 static void FlushLocalWriterThread(const std::weak_ptr<LocalWriter*> writerWeakPtr,
@@ -96,7 +96,7 @@ static void FlushLocalWriterThread(const std::weak_ptr<LocalWriter*> writerWeakP
 
 LocalWriter::~LocalWriter()
 {
-    os::resetExceptionCallback();
+//    os::resetExceptionCallback();
     checkProcessId();
 
     os::String process = os::getProcessName();

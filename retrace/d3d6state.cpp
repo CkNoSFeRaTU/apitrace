@@ -38,7 +38,7 @@
 namespace d3dstate {
 
 static void
-dumpTextureStates(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpTextureStates(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
 #define _DUMP_TS_INT(x) { \
     DWORD rsDword = 0; \
@@ -94,21 +94,26 @@ dumpTextureStates(StateWriter &writer, IDirect3DDevice7 *pDevice)
 }
 
 static void
-dumpViewport(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpViewport(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
     writer.beginMember("Viewport");
     writer.beginObject();
 
-    D3DVIEWPORT7 vp;
-    ZeroMemory(&vp, sizeof(vp));
-    HRESULT hr = pDevice->GetViewport(&vp);
-    if (SUCCEEDED(hr)) {
-        writer.writeIntMember("X", vp.dwX);
-        writer.writeIntMember("Y", vp.dwY);
-        writer.writeIntMember("Width", vp.dwWidth);
-        writer.writeIntMember("Height", vp.dwHeight);
-        writer.writeFloatMember("MinZ", vp.dvMinZ);
-        writer.writeFloatMember("MaxZ", vp.dvMaxZ);
+    IDirect3DViewport3 *vp3 = nullptr;
+    HRESULT hr = pDevice->GetCurrentViewport(&vp3);
+    if (SUCCEEDED(hr) && vp3) {
+        D3DVIEWPORT vp;
+        ZeroMemory(&vp, sizeof(vp));
+        vp.dwSize = sizeof(vp);
+        hr = vp3->GetViewport(&vp);
+        if (SUCCEEDED(hr)) {
+            writer.writeIntMember("X", vp.dwX);
+            writer.writeIntMember("Y", vp.dwY);
+            writer.writeIntMember("Width", vp.dwWidth);
+            writer.writeIntMember("Height", vp.dwHeight);
+            writer.writeFloatMember("MinZ", vp.dvMinZ);
+            writer.writeFloatMember("MaxZ", vp.dvMaxZ);
+        }
     }
 
     writer.endObject();
@@ -116,7 +121,7 @@ dumpViewport(StateWriter &writer, IDirect3DDevice7 *pDevice)
 }
 
 static void
-dumpRenderstate(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpRenderstate(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
 #define _DUMP_RS_INT(x) { \
     DWORD rsDword = 0; \
@@ -197,6 +202,62 @@ dumpRenderstate(StateWriter &writer, IDirect3DDevice7 *pDevice)
     _DUMP_RS_INT(D3DRENDERSTATE_VERTEXBLEND);
     _DUMP_RS_INT(D3DRENDERSTATE_CLIPPLANEENABLE);
 
+    // D3D6 and lower
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREHANDLE);
+    _DUMP_RS_INT(D3DRENDERSTATE_ANTIALIAS);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREADDRESS);
+    _DUMP_RS_INT(D3DRENDERSTATE_WRAPU);
+    _DUMP_RS_INT(D3DRENDERSTATE_WRAPV);
+    _DUMP_RS_INT(D3DRENDERSTATE_MONOENABLE);
+    _DUMP_RS_INT(D3DRENDERSTATE_ROP2);
+    _DUMP_RS_INT(D3DRENDERSTATE_PLANEMASK);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREMAG);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREMIN);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREMAPBLEND);
+    _DUMP_RS_INT(D3DRENDERSTATE_SUBPIXEL);
+    _DUMP_RS_INT(D3DRENDERSTATE_SUBPIXELX);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEENABLE);
+    _DUMP_RS_INT(D3DRENDERSTATE_OLDALPHABLENDENABLE);
+    _DUMP_RS_INT(D3DRENDERSTATE_BORDERCOLOR);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREADDRESSU);
+    _DUMP_RS_INT(D3DRENDERSTATE_TEXTUREADDRESSV);
+    _DUMP_RS_INT(D3DRENDERSTATE_MIPMAPLODBIAS);
+    _DUMP_RS_INT(D3DRENDERSTATE_ANISOTROPY);
+    _DUMP_RS_INT(D3DRENDERSTATE_FLUSHBATCH);
+    _DUMP_RS_INT(D3DRENDERSTATE_TRANSLUCENTSORTINDEPENDENT);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN00);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN01);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN02);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN03);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN04);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN05);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN06);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN07);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN08);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN09);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN10);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN11);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN12);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN13);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN14);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN15);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN16);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN17);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN18);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN19);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN20);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN21);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN22);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN23);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN24);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN25);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN26);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN27);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN28);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN29);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN30);
+    _DUMP_RS_INT(D3DRENDERSTATE_STIPPLEPATTERN31);
+
 #undef _DUMP_RS_INT
 #undef _DUMP_RS_FLOAT
 
@@ -209,7 +270,7 @@ dumpRenderstate(StateWriter &writer, IDirect3DDevice7 *pDevice)
 }
 
 void
-dumpDevice(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpDevice(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
     dumpRenderstate(writer, pDevice);
 

@@ -35,6 +35,7 @@
 #endif
 
 
+struct IDirect3DDevice3;
 struct IDirect3DDevice7;
 struct IDirect3DDevice8;
 struct IDirect3DDevice9;
@@ -58,6 +59,22 @@ namespace d3dstate {
 
 extern const GUID GUID_D3DSTATE;
 
+
+/*
+ * D3D6
+ */
+
+image::Image *
+getRenderTargetImage(IDirect3DDevice3 *pDevice);
+
+void
+dumpTextures(StateWriter& writer, IDirect3DDevice3 *pDevice);
+
+void
+dumpFramebuffer(StateWriter& writer, IDirect3DDevice3 *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirect3DDevice3 *pDevice);
 
 /*
  * D3D7
