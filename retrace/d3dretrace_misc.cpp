@@ -1,18 +1,22 @@
 #include <assert.h>
 #include <string.h>
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
+#include <list>
 
 #include "retrace.hpp"
 #include "retrace_swizzle.hpp"
 #include "d3dretrace.hpp"
 #include "d3dretrace_misc.hpp"
 
+#include "d3dimports.hpp"
+
 namespace d3dretrace {
 
 typedef std::map<unsigned long long, HDC> HDCMap;
 static HDCMap hdc_map;
+static std::list<unsigned long long> enumSurfaces;
 
 void
 setHDC(unsigned long long hdc_id, HDC hDC) {
@@ -40,6 +44,19 @@ getHDC(unsigned long long hdc_id) {
     }
 
     return it->second;
+}
+
+unsigned long long
+getEnumSurface() {
+    unsigned long long result = enumSurfaces.front();
+    enumSurfaces.pop_front();
+
+    return result;
+}
+
+void
+clearEnumSurfaces() {
+    enumSurfaces.clear();
 }
 
 static void
@@ -108,8 +125,24 @@ retrace_bitblt(trace::Call& call)
     DeleteDC(mDC);
 }
 
+static void
+retrace_enumsurfacescallback(trace::Call& call)
+{
+    unsigned long long origSurface = call.arg(2).toUInt();
+    if (origSurface) {
+        enumSurfaces.push_back(origSurface);
+    }
+}
+
+static void
+retrace_enumsurfaces7callback(trace::Call& call)
+{
+}
+
 const retrace::Entry ddraw_misc_callbacks[] = {
     { "bitblt", &retrace_bitblt },
+    { "enumsurfacescallback", &retrace_enumsurfacescallback },
+    { "LPDDENUMSURFACESCALLBACK7", &retrace_enumsurfaces7callback },
     { NULL, NULL },
 };
 

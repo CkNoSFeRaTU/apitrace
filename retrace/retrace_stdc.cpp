@@ -34,6 +34,18 @@
 #include "retrace_swizzle.hpp"
 
 
+static void retrace_free(trace::Call &call) {
+    retrace::Range destRange;
+    retrace::toRange(call.arg(0), destRange);
+
+    if (!destRange.ptr) {
+        return;
+    }
+
+    retrace::delRegionByPointer(destRange.ptr);
+}
+
+
 static void retrace_malloc(trace::Call &call) {
     size_t size = call.arg(0).toUInt();
     unsigned long long address = call.ret->toUIntPtr();
@@ -118,6 +130,7 @@ retrace_memcpy(trace::Call &call)
 
 
 const retrace::Entry retrace::stdc_callbacks[] = {
+    {"free", &retrace_free},
     {"malloc", &retrace_malloc},
     {"memcpy", &retrace_memcpy},
     {NULL, NULL}

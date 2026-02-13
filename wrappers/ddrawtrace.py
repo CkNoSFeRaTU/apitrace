@@ -76,6 +76,9 @@ class DDrawTracer(DllTracer):
         if interface.name in ('IDirectDrawColorControl', 'IDirectDrawPalette') and method.name in ('SetColorControls', 'SetEntries'):
             print(r'    trace::Flags callFlags = trace::FLAG_END_FRAME;')
             callFlags = "callFlags"
+        if interface.name.startswith('IDirectDraw') and method.name in ('FLipToGDISurface'):
+            print(r'    callFlags = static_cast<trace::Flags>(trace::FLAG_END_FRAME|trace::FLAG_SWAP_RENDERTARGET);')
+            callFlags = "callFlags"
 
         # Clipper negation
         if interface.name.startswith('IDirectDrawSurface'):
@@ -101,11 +104,6 @@ class DDrawTracer(DllTracer):
                 print(r'    if (SUCCEEDED(_this->GetCaps(&ddsCaps) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE))) {')
                 print(r'        g_clipper = %s;' % ', '.join(method.argNames()))
                 print(r'    }')
-
-        if method.name == 'Unlock':
-            print('    if (_MappedSize && m_pbData) {')
-            self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
-            print('    }')
 
         if method.name == 'ReleaseDC':
             print('    HBITMAP hBmpSrc = (HBITMAP)GetCurrentObject(hDC, OBJ_BITMAP);')
@@ -162,6 +160,11 @@ class DDrawTracer(DllTracer):
             print('        dwVertexType = desc.dwFVF;')
             print('    }')
 
+        if method.name == 'Unlock':
+            print('    if (_MappedSize && m_pbData) {')
+            self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
+            print('    }')
+
         if method.name == 'Lock':
             # Reset _DONOTWAIT flags. Otherwise they may fail, and we have no
             # way to cope with it (other than retry).
@@ -169,6 +172,26 @@ class DDrawTracer(DllTracer):
             if mapFlagsArg is not None:
                 print(r'    dwFlags &= ~DDLOCK_DONOTWAIT;')
                 print(r'    dwFlags |= DDLOCK_WAIT;')
+
+        if interface.name.startswith('IDirectDrawSurface') and method.name == 'SetSurfaceDesc':
+            print(r'    if (lpDDSD && (lpDDSD->dwFlags & (DDSD_LPSURFACE)) && lpDDSD->lpSurface) {')
+            print(r'        _getMapInfo(_this, NULL, lpDDSD, m_pbData, _MappedSize);')
+            print(r'        m_pbData = lpDDSD->lpSurface;')
+            print(r'        if (_MappedSize && m_pbData) {')
+            self.emit_malloc('(LPBYTE)m_pbData', '_MappedSize')
+            self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
+            print(r'        }')
+            print(r'    }')
+
+        if interface.name.startswith('IDirectDraw') and method.name in ('EnumAttachedSurfaces', 'EnumSurfaces'):
+            resultOverride = "_result"
+            print('    CBEnumContext context{lpContext, (void*)lpEnumSurfacesCallback, "%s::%s"};' % (interface.name, method.name))
+
+            if method.name == 'EnumAttachedSurfaces':
+                print('    _result = _this->EnumAttachedSurfaces(&context, &EnumAttachedSurfacesCB);')
+            else:
+                print('    _result = _this->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, &EnumAttachedSurfacesCB);')
+
 
         DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags, afterCall = afterCall)
 
@@ -204,12 +227,23 @@ class DDrawTracer(DllTracer):
             print('        _MappedSize = 0;')
             print('    }')
 
+        if interface.name.startswith('IDirectDrawSurface') and method.name == 'SetSurfaceDesc':
+            print(r'    if (lpDDSD && (lpDDSD->dwFlags & (DDSD_LPSURFACE)) && lpDDSD->lpSurface) {')
+            print(r'        if (_MappedSize && m_pbData) {')
+            self.emit_free('(LPBYTE)m_pbData')
+            print(r'        }')
+            print('        m_pbData = nullptr;')
+            print('        _MappedSize = 0;')
+            print(r'    }')
+
 if __name__ == '__main__':
     print('#define INITGUID')
     print('#include "d3dimports.hpp"')
     print('#include "trace_writer_local.hpp"')
     print('#include "d3d7size.hpp"')
     print('#include "os.hpp"')
+    print()
+    print('#include <list>')
     print()
 
     print('static HWND g_hWnd{0};')
@@ -219,5 +253,77 @@ if __name__ == '__main__':
     api = API()
     api.addModule(ddraw)
 
+    print('struct CBEnumContext {')
+    print('    void *pContext;')
+    print('    void *pCallback;')
+    print('    std::string name;')
+    print('};')
+
+    print('template <typename S, typename D>')
+    print('HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void* pContext);')
+
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
+
     tracer = DDrawTracer()
     tracer.traceApi(api)
+
+    print('template <typename S, typename D>')
+    print('using EnumAttachedSurfaces = HRESULT(*)(S *, D *, void *);')
+
+    print('template <typename S, typename D>')
+    print('HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void *pContext) {')
+    print('    CBEnumContext* context = static_cast<CBEnumContext*>(pContext);')
+    print('    HRESULT hr = DDENUMRET_CANCEL;')
+
+    print('    const char* enumsurfaces_args[4] = { "lpContext", "lpEnumSurfacesCallback", "lpDDSurface", "lpDDSurfaceDescCaps" };')
+    print('    const trace::FunctionSig enumsurfaces_sig = { %u, "enumsurfacescallback", 4, enumsurfaces_args };' % tracer.getFunctionSigId())
+    print('    unsigned _callcallback = trace::localWriter.beginEnter(&enumsurfaces_sig, trace::FLAG_FAKE);')
+
+    # TODO: serialize surface descriptor as well
+    print('    trace::localWriter.beginArg(0);')
+    print('    trace::localWriter.writePointer((uintptr_t)context->pContext);')
+    print('    trace::localWriter.endArg();')
+    print('    trace::localWriter.beginArg(1);')
+    print('    trace::localWriter.writePointer((uintptr_t)context->pCallback);')
+    print('    trace::localWriter.endArg();')
+    print('    trace::localWriter.beginArg(2);')
+    print('    trace::localWriter.writePointer((uintptr_t)pSurface);')
+    print('    trace::localWriter.endArg();')
+    print('    if (pDesc) {')
+    print('        trace::localWriter.beginArg(3);')
+    print('        trace::localWriter.beginStruct(&_structDDSCAPS_sig);')
+    print('        trace::localWriter.writeBitmask(&_bitmaskDWORD31_sig, pDesc->ddsCaps.dwCaps);')
+    print('        trace::localWriter.endStruct();')
+    print('        trace::localWriter.endArg();')
+    print('    }')
+    print('    trace::localWriter.endEnter();')
+    print('    trace::localWriter.beginLeave(_callcallback);')
+    print('    trace::localWriter.beginReturn();')
+    print('    trace::localWriter.writeUInt(hr);')
+    print('    trace::localWriter.endReturn();')
+    print('    trace::localWriter.endLeave();')
+
+    print('    EnumAttachedSurfaces<S, D> callback = reinterpret_cast<EnumAttachedSurfaces<S, D>>(context->pCallback);')
+    print('    if (callback) {')
+    print('        if constexpr (std::is_same_v<S, IDirectDrawSurface>) {')
+    print('            WrapIDirectDrawSurface::_wrap(context->name.c_str(), &pSurface);')
+    print('            return callback(pSurface, pDesc, context->pContext);')
+    print('        }')
+    print('        else if constexpr (std::is_same_v<S, IDirectDrawSurface4>) {')
+    print('            WrapIDirectDrawSurface4::_wrap(context->name.c_str(), &pSurface);')
+    print('            return callback(pSurface, pDesc, context->pContext);')
+    print('        }')
+    print('        else if constexpr (std::is_same_v<S, IDirectDrawSurface7>) {')
+    print('            WrapIDirectDrawSurface7::_wrap(context->name.c_str(), &pSurface);')
+    print('            return callback(pSurface, pDesc, context->pContext);')
+    print('        }')
+    print('    }')
+    print('    return hr;')
+    print('}')

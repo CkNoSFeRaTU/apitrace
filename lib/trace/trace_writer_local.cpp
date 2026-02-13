@@ -76,7 +76,7 @@ LocalWriter::LocalWriter() :
 
     // Install the signal handlers as early as possible, to prevent
     // interfering with the application's signal handling.
-//    os::setExceptionCallback(exceptionCallback);
+    os::setExceptionCallback(exceptionCallback);
 }
 
 static void FlushLocalWriterThread(const std::weak_ptr<LocalWriter*> writerWeakPtr,
@@ -96,7 +96,7 @@ static void FlushLocalWriterThread(const std::weak_ptr<LocalWriter*> writerWeakP
 
 LocalWriter::~LocalWriter()
 {
-//    os::resetExceptionCallback();
+    os::resetExceptionCallback();
     checkProcessId();
 
     os::String process = os::getProcessName();
@@ -290,6 +290,36 @@ void LocalWriter::flush(void) {
 
 LocalWriter localWriter;
 
+void fakeMalloc(const void *ptr, size_t size) {
+    if (!size) {
+        return;
+    }
+
+    unsigned _call = localWriter.beginEnter(&malloc_sig, FLAG_FAKE);
+
+    localWriter.beginArg(0);
+    localWriter.writeUInt(size);
+    localWriter.endArg();
+    localWriter.endEnter();
+    localWriter.beginLeave(_call);
+    localWriter.beginReturn();
+    localWriter.writePointer((uintptr_t)ptr);
+    localWriter.endReturn();
+    localWriter.endLeave();
+}
+
+void fakeFree(const void *ptr) {
+    assert(ptr);
+
+    unsigned _call = localWriter.beginEnter(&free_sig, FLAG_FAKE);
+
+    localWriter.beginArg(0);
+    localWriter.writePointer((uintptr_t)ptr);
+    localWriter.endArg();
+    localWriter.endEnter();
+    localWriter.beginLeave(_call);
+    localWriter.endLeave();
+}
 
 void fakeMemcpy(const void *ptr, size_t size) {
     assert(ptr);

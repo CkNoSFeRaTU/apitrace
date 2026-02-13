@@ -1054,6 +1054,60 @@ DDSURFACEDESC2 = Struct("DDSURFACEDESC2", [
 ])
 LPDDSURFACEDESC2 = Pointer(DDSURFACEDESC2)
 
+DDSURFACEDESC2SSD = Struct("DDSURFACEDESC2", [
+    (DWORD, "dwSize"),
+    (DirectDrawSurfaceDescFlags, "dwFlags"),
+    (DWORD, "dwHeight"),
+    (DWORD, "dwWidth"),
+
+    (Union("({self}.dwFlags & (DDSD_PITCH|DDSD_LINEARSIZE))", [
+        ("0", None, None),
+        ("DDSD_PITCH", LONG, "lPitch"),
+        ("DDSD_LINEARSIZE", DWORD, "dwLinearSize"),
+    ]), None),
+
+    (Union("({self}.dwFlags & (DDSD_BACKBUFFERCOUNT|DDSD_DEPTH))", [
+        ("0", None, None),
+        ("DDSD_BACKBUFFERCOUNT", DWORD, "dwBackBufferCount"),
+        # This field is technically dead weight in 7.0a SDK as flag for it only appeared in 8.0 SDK.
+        # But there are users of it. Were they compiled against 8.0+ SDK or there was an instance
+        # of this field abuse in combination with some vendor extensions?
+        ("DDSD_DEPTH", DWORD, "dwDepth"),
+    ]), None),
+
+    (Union("({self}.dwFlags & (DDSD_MIPMAPCOUNT|DDSD_REFRESHRATE|DDSD_SRCVBHANDLE))", [
+        ("0", None, None),
+        ("DDSD_MIPMAPCOUNT", DWORD, "dwMipMapCount"),
+        ("DDSD_REFRESHRATE", DWORD, "dwRefreshRate"),
+        ("DDSD_SRCVBHANDLE", DWORD, "dwSrcVBHandle"),
+    ]), None),
+
+    (DWORD, "dwAlphaBitDepth"),
+    (DWORD, "dwReserved"),
+    (Blob(Void, "_MappedSize"), "lpSurface"),
+
+    (Union("({self}.dwFlags & (DDSD_CKDESTOVERLAY))", [
+        ("0", None, None),
+        ("DDSD_CKDESTOVERLAY", DDCOLORKEY, "ddckCKDestOverlay"),
+        # This was never implemented and so never received a flag? Ignore it for now.
+        #("DDSD_EMPTYFACECOLOR", DWORD, "dwEmptyFaceColor"),
+    ]), None),
+
+    (DDCOLORKEY, "ddckCKDestBlt"),
+    (DDCOLORKEY, "ddckCKSrcOverlay"),
+    (DDCOLORKEY, "ddckCKSrcBlt"),
+
+    (Union("({self}.dwFlags & (DDSD_PIXELFORMAT|DDSD_FVF))", [
+        ("0", None, None),
+        ("DDSD_PIXELFORMAT", DDPIXELFORMAT, "ddpfPixelFormat"),
+        ("DDSD_FVF", D3DFVF, "dwFVF"),
+    ]), None),
+
+    (DDSCAPS2, "ddsCaps"),
+    (DWORD, "dwTextureStage"),
+])
+LPDDSURFACEDESC2SSD = Pointer(DDSURFACEDESC2SSD)
+
 DDOSD = Flags(DWORD, [
     "DDOSD_GUID",
     "DDOSD_COMPRESSION_RATIO",
@@ -1412,7 +1466,7 @@ IDirectDraw.methods += [
     StdMethod(DDRESULT, "CreateSurface", [(LPDDSURFACEDESC, "lpDDSurfaceDesc"), Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDDSurface"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(DDRESULT, "DuplicateSurface", [(LPDIRECTDRAWSURFACE, "lpDDSurface"), Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDupDDSurface")]),
     StdMethod(DDRESULT, "EnumDisplayModes", [(DirectDrawEnumDisplayModesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMMODESCALLBACK, "lpEnumModesCallback")], sideeffects=False),
-    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "FlipToGDISurface", []),
     StdMethod(DDRESULT, "GetCaps", [Out(LPDDCAPS, "lpDDDriverCaps"), Out(LPDDCAPS, "lpDDHELCaps")], sideeffects=False),
     StdMethod(DDRESULT, "GetDisplayMode", [Out(LPDDSURFACEDESC, "lpDDSurfaceDesc")], sideeffects=False),
@@ -1435,7 +1489,7 @@ IDirectDraw2.methods += [
     StdMethod(DDRESULT, "CreateSurface", [(LPDDSURFACEDESC, "lpDDSurfaceDesc"), Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDDSurface"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(DDRESULT, "DuplicateSurface", [(LPDIRECTDRAWSURFACE, "lpDDSurface"), Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDupDDSurface")]),
     StdMethod(DDRESULT, "EnumDisplayModes", [(DirectDrawEnumDisplayModesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMMODESCALLBACK, "lpEnumModesCallback")], sideeffects=False),
-    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "FlipToGDISurface", []),
     StdMethod(DDRESULT, "GetCaps", [Out(LPDDCAPS, "lpDDDriverCaps"), Out(LPDDCAPS, "lpDDHELCaps")], sideeffects=False),
     StdMethod(DDRESULT, "GetDisplayMode", [Out(LPDDSURFACEDESC, "lpDDSurfaceDesc")], sideeffects=False),
@@ -1459,7 +1513,7 @@ IDirectDraw4.methods += [
     StdMethod(DDRESULT, "CreateSurface", [(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), Out(Pointer(LPDIRECTDRAWSURFACE4), "lplpDDSurface"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(DDRESULT, "DuplicateSurface", [(LPDIRECTDRAWSURFACE4, "lpDDSurface"), Out(Pointer(LPDIRECTDRAWSURFACE4), "lplpDupDDSurface")]),
     StdMethod(DDRESULT, "EnumDisplayModes", [(DirectDrawEnumDisplayModesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMMODESCALLBACK2, "lpEnumModesCallback")], sideeffects=False),
-    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK2, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK2, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "FlipToGDISurface", []),
     StdMethod(DDRESULT, "GetCaps", [Out(LPDDCAPS, "lpDDDriverCaps"), Out(LPDDCAPS, "lpDDHELCaps")], sideeffects=False),
     StdMethod(DDRESULT, "GetDisplayMode", [Out(LPDDSURFACEDESC2, "lpDDSurfaceDesc")], sideeffects=False),
@@ -1487,7 +1541,7 @@ IDirectDraw7.methods += [
     StdMethod(DDRESULT, "CreateSurface", [(LPDDSURFACEDESC2, "lpDDSurfaceDesc"), Out(Pointer(LPDIRECTDRAWSURFACE7), "lplpDDSurface"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(DDRESULT, "DuplicateSurface", [(LPDIRECTDRAWSURFACE7, "lpDDSurface"), Out(Pointer(LPDIRECTDRAWSURFACE7), "lplpDupDDSurface")]),
     StdMethod(DDRESULT, "EnumDisplayModes", [(DirectDrawEnumDisplayModesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMMODESCALLBACK2, "lpEnumModesCallback")], sideeffects=False),
-    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK7, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumSurfaces", [(DirectDrawEnumSurfacesFlags, "dwFlags"), (LPDDSURFACEDESC2, "lpDDSurfaceDesc"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK7, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "FlipToGDISurface", []),
     StdMethod(DDRESULT, "GetCaps", [Out(LPDDCAPS, "lpDDDriverCaps"), Out(LPDDCAPS, "lpDDHELCaps")], sideeffects=False),
     StdMethod(DDRESULT, "GetDisplayMode", [Out(LPDDSURFACEDESC2, "lpDDSurfaceDesc")], sideeffects=False),
@@ -1534,7 +1588,7 @@ IDirectDrawSurface.methods += [
     StdMethod(DDRESULT, "BltBatch", [(LPDDBLTBATCH, "lpDDBltBatch"), (DWORD, "dwCount"), (DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "BltFast", [(DWORD, "dwX"), (DWORD, "dwY"), (LPDIRECTDRAWSURFACE, "lpDDSrcSurface"), (LPRECT, "lpSrcRect"), (DWORD, "dwTrans")]),
     StdMethod(DDRESULT, "DeleteAttachedSurface", [(DWORD, "dwFlags"), (LPDIRECTDRAWSURFACE, "lpDDSurface")]),
-    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "EnumOverlayZOrders", [(DirectDrawEnumOverlayZOrderFlags, "dwFlags"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpfnCallback")], sideeffects=False),
     StdMethod(DDRESULT, "Flip", [(LPDIRECTDRAWSURFACE, "lpDDSurfaceTargetOverride"), (DirectDrawFlipFlags, "dwFlags")]),
     StdMethod(DDRESULT, "GetAttachedSurface", [(LPDDSCAPS, "lpDDSCaps"), Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDDAttachedSurface")]),
@@ -1570,7 +1624,7 @@ IDirectDrawSurface2.methods += [
     StdMethod(DDRESULT, "BltBatch", [(LPDDBLTBATCH, "lpDDBltBatch"), (DWORD, "dwCount"), (DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "BltFast", [(DWORD, "dwX"), (DWORD, "dwY"), (LPDIRECTDRAWSURFACE2, "lpDDSrcSurface"), (LPRECT, "lpSrcRect"), (DWORD, "dwTrans")]),
     StdMethod(DDRESULT, "DeleteAttachedSurface", [(DWORD, "dwFlags"), (LPDIRECTDRAWSURFACE2, "lpDDSurface")]),
-    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "EnumOverlayZOrders", [(DirectDrawEnumOverlayZOrderFlags, "dwFlags"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpfnCallback")], sideeffects=False),
     StdMethod(DDRESULT, "Flip", [(LPDIRECTDRAWSURFACE2, "lpDDSurfaceTargetOverride"), (DirectDrawFlipFlags, "dwFlags")]),
     StdMethod(DDRESULT, "GetAttachedSurface", [(LPDDSCAPS, "lpDDSCaps"), Out(Pointer(LPDIRECTDRAWSURFACE2), "lplpDDAttachedSurface")]),
@@ -1609,7 +1663,7 @@ IDirectDrawSurface3.methods += [
     StdMethod(DDRESULT, "BltBatch", [(LPDDBLTBATCH, "lpDDBltBatch"), (DWORD, "dwCount"), (DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "BltFast", [(DWORD, "dwX"), (DWORD, "dwY"), (LPDIRECTDRAWSURFACE3, "lpDDSrcSurface"), (LPRECT, "lpSrcRect"), (DWORD, "dwTrans")]),
     StdMethod(DDRESULT, "DeleteAttachedSurface", [(DWORD, "dwFlags"), (LPDIRECTDRAWSURFACE3, "lpDDSurface")]),
-    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "EnumOverlayZOrders", [(DirectDrawEnumOverlayZOrderFlags, "dwFlags"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK, "lpfnCallback")], sideeffects=False),
     StdMethod(DDRESULT, "Flip", [(LPDIRECTDRAWSURFACE3, "lpDDSurfaceTargetOverride"), (DirectDrawFlipFlags, "dwFlags")]),
     StdMethod(DDRESULT, "GetAttachedSurface", [(LPDDSCAPS, "lpDDSCaps"), Out(Pointer(LPDIRECTDRAWSURFACE3), "lplpDDAttachedSurface")]),
@@ -1649,7 +1703,7 @@ IDirectDrawSurface4.methods += [
     StdMethod(DDRESULT, "BltBatch", [(LPDDBLTBATCH, "lpDDBltBatch"), (DWORD, "dwCount"), (DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "BltFast", [(DWORD, "dwX"), (DWORD, "dwY"), (LPDIRECTDRAWSURFACE4, "lpDDSrcSurface"), (LPRECT, "lpSrcRect"), (DWORD, "dwTrans")]),
     StdMethod(DDRESULT, "DeleteAttachedSurface", [(DWORD, "dwFlags"), (LPDIRECTDRAWSURFACE4, "lpDDSurface")]),
-    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK2, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK2, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "EnumOverlayZOrders", [(DirectDrawEnumOverlayZOrderFlags, "dwFlags"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK2, "lpfnCallback")], sideeffects=False),
     StdMethod(DDRESULT, "Flip", [(LPDIRECTDRAWSURFACE4, "lpDDSurfaceTargetOverride"), (DirectDrawFlipFlags, "dwFlags")]),
     StdMethod(DDRESULT, "GetAttachedSurface", [(LPDDSCAPS2, "lpDDSCaps"), Out(Pointer(LPDIRECTDRAWSURFACE4), "lplpDDAttachedSurface")]),
@@ -1694,7 +1748,7 @@ IDirectDrawSurface7.methods += [
     StdMethod(DDRESULT, "BltBatch", [(LPDDBLTBATCH, "lpDDBltBatch"), (DWORD, "dwCount"), (DWORD, "dwFlags")]),
     StdMethod(DDRESULT, "BltFast", [(DWORD, "dwX"), (DWORD, "dwY"), (LPDIRECTDRAWSURFACE7, "lpDDSrcSurface"), (LPRECT, "lpSrcRect"), (DWORD, "dwTrans")]),
     StdMethod(DDRESULT, "DeleteAttachedSurface", [(DWORD, "dwFlags"), (LPDIRECTDRAWSURFACE7, "lpDDSurface")]),
-    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK7, "lpEnumSurfacesCallback")], sideeffects=False),
+    StdMethod(DDRESULT, "EnumAttachedSurfaces", [(LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK7, "lpEnumSurfacesCallback")]),
     StdMethod(DDRESULT, "EnumOverlayZOrders", [(DirectDrawEnumOverlayZOrderFlags, "dwFlags"), (LPVOID, "lpContext"), (LPDDENUMSURFACESCALLBACK7, "lpfnCallback")], sideeffects=False),
     StdMethod(DDRESULT, "Flip", [(LPDIRECTDRAWSURFACE7, "lpDDSurfaceTargetOverride"), (DirectDrawFlipFlags, "dwFlags")]),
     StdMethod(DDRESULT, "GetAttachedSurface", [(LPDDSCAPS2, "lpDDSCaps"), Out(Pointer(LPDIRECTDRAWSURFACE7), "lplpDDAttachedSurface")]),

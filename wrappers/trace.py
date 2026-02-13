@@ -1019,7 +1019,13 @@ class Tracer:
         else:
             result = '_result = '
         print('    %s_this->%s(%s);' % (result, method.name, ', '.join([str(arg.name) for arg in method.args])))
-    
+
+    def emit_free(self, ptr):
+        print('    trace::fakeFree(%s);' % (ptr))
+
+    def emit_malloc(self, ptr, size):
+        print('    trace::fakeMalloc(%s, %s);' % (ptr, size))
+
     def emit_memcpy(self, ptr, size):
         print('    trace::fakeMemcpy(%s, %s);' % (ptr, size))
 

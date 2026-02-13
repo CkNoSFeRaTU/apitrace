@@ -37,8 +37,25 @@
 
 
 static inline size_t
+_getLegacyVertexSize(D3DVERTEXTYPE vertexType) {
+    switch (vertexType) {
+    case D3DVT_VERTEX:
+        return sizeof(D3DVERTEX);
+    case D3DVT_LVERTEX:
+        return sizeof(D3DLVERTEX);
+    case D3DVT_TLVERTEX:
+        return sizeof(D3DTLVERTEX);
+    default:
+        os::log("apitrace: warning: %s: unknown vertex type", __FUNCTION__);
+        return 0;
+    }
+}
+
+static inline size_t
 _getVertexSize(DWORD dwFVF) {
     size_t size = 0;
+
+    assert((dwFVF & D3DFVF_RESERVED0) == 0);
 
     switch (dwFVF & D3DFVF_POSITION_MASK) {
     case D3DFVF_XYZ:
@@ -79,9 +96,10 @@ _getVertexSize(DWORD dwFVF) {
         size += sizeof(FLOAT);
     }
 #else
-    if (dwFVF & D3DFVF_RESERVED0) {
+    // D3D6/D3D7 uses D3DFVF_RESERVED1 (old D3DFVF_PSIZE)
+    if (dwFVF & D3DFVF_RESERVED1) {
         // D3DLVERTEX
-        size += sizeof(D3DLVERTEX);
+        size += sizeof(DWORD);
     }
 #endif
 #if DIRECT3D_VERSION >= 0x0600

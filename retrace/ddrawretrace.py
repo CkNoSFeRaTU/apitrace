@@ -42,41 +42,50 @@ class D3DRetracer(Retracer):
         print('static HWND g_hWnd{0};')
         print('static int g_width = 0, g_height = 0;');
         print('static LPDIRECTDRAWCLIPPER g_clipper = nullptr;')
+        print('static std::list<void *> g_enumSurfaces;')
         print()
 
         Retracer.retraceApi(self, api)
 
     def invokeInterfaceMethod(self, interface, method):
         # keep track of the last used device for state dumping
-        if interface.name == 'IDirect3DDevice3':
-            if method.name == 'Release':
-                print(r'    if (call.ret->toUInt() == 0) {')
-                print(r'        d3d6Dumper.unbindDevice(_this);')
-                print(r'    }')
-            else:
-                print(r'    d3d6Dumper.bindDevice(_this);')
-        elif interface.name == 'IDirect3DDevice7':
-            if method.name == 'Release':
-                print(r'    if (call.ret->toUInt() == 0) {')
-                print(r'        d3d7Dumper.unbindDevice(_this);')
-                print(r'    }')
-            else:
-                print(r'    d3d7Dumper.bindDevice(_this);')
+        if interface.name == 'IUnknown' and method.name == 'Release':
+            print(r'    if (call.ret->toUInt() == 0) {')
+            print(r'        if (_this == d3d3Dumper.pLastDevice) {')
+            print(r'            d3d3Dumper.unbindDevice(static_cast<IDirect3DDevice*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == d3d5Dumper.pLastDevice) {')
+            print(r'            d3d5Dumper.unbindDevice(static_cast<IDirect3DDevice2*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == d3d6Dumper.pLastDevice) {')
+            print(r'            d3d6Dumper.unbindDevice(static_cast<IDirect3DDevice3*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == d3d7Dumper.pLastDevice) {')
+            print(r'            d3d7Dumper.unbindDevice(static_cast<IDirect3DDevice7*>(_this));')
+            print(r'        }')
+            print(r'    }')
+        elif interface.name == 'IDirect3DDevice' and method.name != 'Release':
+            print(r'    d3d3Dumper.bindDevice(_this);')
+        elif interface.name == 'IDirect3DDevice2' and method.name != 'Release':
+            print(r'    d3d5Dumper.bindDevice(_this);')
+        elif interface.name == 'IDirect3DDevice3' and method.name != 'Release':
+            print(r'    d3d6Dumper.bindDevice(_this);')
+        elif interface.name == 'IDirect3DDevice7' and method.name != 'Release':
+            print(r'    d3d7Dumper.bindDevice(_this);')
 
         # notify frame has been completed
         # process events after presents
-        if interface.name.startswith('IDirectDrawSurface') and method.name in ('Blt', 'BltFast', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
+        if interface.name.startswith('IDirectDraw') and method.name in ('Blt', 'BltFast', 'EndScene', 'Flip', 'Unlock', 'ReleaseDC'):
             if interface.name in ('IDirectDrawSurface4', 'IDirectDrawSurface7'):
                 print(r'    DDSCAPS2 ddsCaps;')
             else:
                 print(r'    DDSCAPS ddsCaps;')
             print(r'    HRESULT hr = _this->GetCaps(&ddsCaps);')
-            print(r'    if (SUCCEEDED(hr) &&')
-            print(r'        (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
+            print(r'    if (SUCCEEDED(hr) && (ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {')
             print(r'        retrace::frameComplete(call);')
             print(r'        d3dretrace::processEvents();')
             print(r'    }')
-        if interface.name in ('IDirectDrawColorControl', 'IDirectDrawPalette') and method.name in ('SetColorControls', 'SetEntries'):
+        if interface.name.startswith('IDirectDraw') and method.name in ('SetColorControls', 'SetEntries', 'FlipToGDISurface'):
             print(r'    retrace::frameComplete(call);')
             print(r'    d3dretrace::processEvents();')
 
@@ -137,7 +146,28 @@ class D3DRetracer(Retracer):
                 print(r'    if (g_hWnd && g_clipper)')
                 print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
 
+        if interface.name.startswith('IDirectDraw') and method.name in ('EnumSurfaces', 'EnumAttachedSurfaces'):
+            print(r'    CBEnumContext context{call};')
+            print(r'    lpContext = &context;')
+            print(r'    lpEnumSurfacesCallback = &EnumAttachedSurfacesCB;')
+
         Retracer.invokeInterfaceMethod(self, interface, method)
+
+        if interface.name == 'IDirect3D2' and method.name == 'CreateDevice':
+            print(r'    if (call.ret->toUInt() == 0) {')
+            print(r'        d3d5Dumper.bindDevice(*lplpD3DDevice2);')
+            print(r'    }')
+        elif interface.name == 'IDirect3D3' and method.name == 'CreateDevice':
+            print(r'    if (call.ret->toUInt() == 0) {')
+            print(r'        d3d6Dumper.bindDevice(*lplpD3DDevice3);')
+            print(r'    }')
+        elif interface.name == 'IDirect3D7' and method.name == 'CreateDevice':
+            print(r'    if (call.ret->toUInt() == 0) {')
+            print(r'        d3d7Dumper.bindDevice(*lplpD3DDevice);')
+            print(r'    }')
+
+        if interface.name.startswith('IDirectDraw') and method.name in ('EnumSurfaces', 'EnumAttachedSurfaces'):
+            print(r'    d3dretrace::clearEnumSurfaces();')
 
         if method.name == 'CreateDevice':
             print(r'    if (FAILED(_result)) {')
@@ -194,6 +224,16 @@ class D3DRetracer(Retracer):
             print('        d3dretrace::setHDC((*_ar->values[0]).toUInt(), phDC[0]);')
             print('    }')
 
+        if interface.name == 'IDirect3DTexture2' and method.name == 'GetHandle':
+            print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpHandle').name)
+            print(r'        d3dstate::setTextureMap(*%s, _this);' % method.getArgByName('lpHandle').name)
+            print(r'    }')
+
+        if interface.name == 'IDirect3DDevice2' and method.name == 'SetRenderState':
+            print(r'    if (SUCCEEDED(_result) && %s == D3DRENDERSTATE_TEXTUREHANDLE) {' % method.getArgByName('dwRenderStateType').name)
+            print(r'        d3dstate::setTexture(%s);' % method.getArgByName('dwRenderState').name)
+            print(r'    }')
+
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):
         # Handle DDCREATE_* flags
         if arg.type is DDCREATE_LPGUID:
@@ -216,18 +256,52 @@ def main():
     print()
 
     api = API()
-    
+
     print(r'#include "d3dimports.hpp"')
     print(r'#include "d3d7size.hpp"')
     api.addModule(ddraw)
     print()
+    print('''static d3dretrace::D3DDumper<IDirect3DDevice> d3d3Dumper;''')
+    print('''static d3dretrace::D3DDumper<IDirect3DDevice2> d3d5Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice3> d3d6Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice7> d3d7Dumper;''')
     print()
 
+    print('struct CBEnumContext {')
+    print('    trace::Call &call;')
+    print('};')
+
+    print('template <typename S, typename D>')
+    print('HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void* pContext);')
+
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
+    print('template HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
+
     retracer = D3DRetracer()
     retracer.table_name = 'd3dretrace::ddraw_callbacks'
     retracer.retraceApi(api)
+
+    print('template <typename S, typename D>')
+    print('using EnumAttachedSurfaces = HRESULT(*)(S *, D *, void *);')
+
+    print('template <typename S, typename D>')
+    print('HRESULT CALLBACK')
+    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void *pContext) {')
+    print('    CBEnumContext* context = static_cast<CBEnumContext*>(pContext);')
+    print('    unsigned long long addr = d3dretrace::getEnumSurface();')
+    print('    if (addr && pSurface) {')
+    print('        trace::Value &val = *new trace::Pointer(static_cast<uintptr_t>(addr));')
+    print('        retrace::addObj(context->call, val, pSurface);')
+    print('        return DDENUMRET_OK;')
+    print('    }')
+    print('    return DDENUMRET_CANCEL;')
+    print('}')
+
 
 
 if __name__ == '__main__':

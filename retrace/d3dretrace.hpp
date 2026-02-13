@@ -30,7 +30,7 @@
 
 #include "retrace.hpp"
 #include "d3dstate.hpp"
-
+#include "d3dretrace_misc.hpp"
 
 namespace d3dretrace {
 
@@ -48,7 +48,7 @@ public:
     Device *pLastDevice;
 
     D3DDumper() :
-        pLastDevice(NULL)
+        pLastDevice(nullptr)
     {}
 
     int
@@ -59,19 +59,21 @@ public:
     image::Image *
     getSnapshot(int n, bool backBuffer) override {
         if ((n != 0) || !pLastDevice) {
-            return NULL;
+            return nullptr;
         }
         return d3dstate::getRenderTargetImage(pLastDevice);
     }
 
     bool
     canDump(void) override {
-        return pLastDevice;
+        return pLastDevice != nullptr;
     }
 
     void
     dumpState(StateWriter &writer) override {
-        d3dstate::dumpDevice(writer, pLastDevice);
+        if (canDump()) {
+            d3dstate::dumpDevice(writer, pLastDevice);
+        }
     }
 
     inline void
@@ -79,11 +81,11 @@ public:
         pLastDevice = pDevice;
         retrace::dumper = this;
     }
-    
+
     inline void
     unbindDevice(Device *pDevice) {
         if (pLastDevice == pDevice) {
-            pLastDevice = NULL;
+            pLastDevice = nullptr;
         }
     }
 };
@@ -103,9 +105,6 @@ resizeWindow(HWND hWnd, int width, int height);
 
 bool
 processEvents(void);
-
-void
-setHDC(unsigned long long id, HDC hDC);
 
 } /* namespace d3dretrace */
 

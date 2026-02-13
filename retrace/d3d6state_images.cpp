@@ -28,131 +28,22 @@
 #include <initguid.h>
 #include <stdint.h>
 
+#include <list>
+
 #include "image.hpp"
 #include "state_writer.hpp"
-#include "com_ptr.hpp"
+#include "d3dcommon.hpp"
 #include "d3dimports.hpp"
 #include "d3dstate.hpp"
 
 
-typedef enum _D3DFORMAT
-{
-    D3DFMT_UNKNOWN              =  0,
-
-    D3DFMT_R8G8B8               = 20,
-    D3DFMT_A8R8G8B8             = 21,
-    D3DFMT_X8R8G8B8             = 22,
-    D3DFMT_R5G6B5               = 23,
-    D3DFMT_X1R5G5B5             = 24,
-    D3DFMT_A1R5G5B5             = 25,
-    D3DFMT_A4R4G4B4             = 26,
-    D3DFMT_R3G3B2               = 27,
-    D3DFMT_A8                   = 28,
-    D3DFMT_A8R3G3B2             = 29,
-    D3DFMT_X4R4G4B4             = 30,
-    D3DFMT_A2B10G10R10          = 31,
-
-    D3DFMT_A8P8                 = 40,
-    D3DFMT_P8                   = 41,
-
-    D3DFMT_L8                   = 50,
-    D3DFMT_A8L8                 = 51,
-    D3DFMT_A4L4                 = 52,
-
-    D3DFMT_V8U8                 = 60,
-    D3DFMT_L6V5U5               = 61,
-    D3DFMT_X8L8V8U8             = 62,
-
-    D3DFMT_D16_LOCKABLE         = 70,
-    D3DFMT_D32                  = 71,
-    D3DFMT_D15S1                = 73,
-    D3DFMT_D24S8                = 75,
-    D3DFMT_D24X8                = 77,
-    D3DFMT_D24X4S4              = 79,
-    D3DFMT_D16                  = 80,
-
-    D3DFMT_D32F_LOCKABLE        = 82,
-    D3DFMT_D24FS8               = 83,
-
-    D3DFMT_FORCE_DWORD          = 0x7fffffff
-} D3DFORMAT;
-
 namespace d3dstate {
-
-image::Image *
-ConvertImage(D3DFORMAT SrcFormat,
-             void *SrcData,
-             INT SrcPitch,
-             UINT Width, UINT Height);
-
-const char *
-formatToString(D3DFORMAT fmt);
-
-D3DFORMAT
-convertFormat(const DDPIXELFORMAT &ddpf);
-
-static image::Image *
-getSurfaceImage(IDirect3DDevice3 *pDevice, IDirectDrawSurface4 *pSurface)
-{
-    HRESULT hr;
-
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(desc));
-    desc.dwSize = sizeof desc;
-
-    hr = pSurface->Lock(nullptr, &desc, DDLOCK_WAIT | DDLOCK_READONLY | DDLOCK_SURFACEMEMORYPTR | DDLOCK_NOSYSLOCK, NULL);
-    if (FAILED(hr)) {
-        hr = pSurface->Unlock(nullptr);
-        if (SUCCEEDED(hr)) {
-            hr = pSurface->Lock(nullptr, &desc, DDLOCK_WAIT | DDLOCK_READONLY | DDLOCK_SURFACEMEMORYPTR | DDLOCK_NOSYSLOCK, NULL);
-            if (FAILED(hr)) {
-                std::cerr << "warning: IDirectDrawSurface4::Lock failed\n";
-                return nullptr;
-            }
-        } else {
-            std::cerr << "warning: IDirectDrawSurface4::Lock failed\n";
-            return nullptr;
-        }
-    }
-
-    image::Image *image = nullptr;
-    D3DFORMAT Format = convertFormat(desc.ddpfPixelFormat);
-    {
-        INT pitch = 0;
-        if (desc.dwFlags & DDSD_PITCH) {
-            pitch = desc.lPitch;
-        } else {
-            switch (Format) {
-            case(D3DFMT_DXT1):
-                pitch = ((desc.dwWidth + 3) / 4) * (64 / 8);
-                break;
-            case(D3DFMT_DXT2):
-            case(D3DFMT_DXT3):
-            case(D3DFMT_DXT4):
-            case(D3DFMT_DXT5):
-                pitch = ((desc.dwWidth + 3) / 4) * (128 / 8);
-                break;
-            default:
-                std::cerr << "warning: DDPIXELFORMAT is unsupported, image skipped\n";
-                pSurface->Unlock(nullptr);
-                return nullptr;
-            }
-        }
-
-        image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight);
-    }
-
-    pSurface->Unlock(nullptr);
-
-    return image;
-}
-
 
 image::Image *
 getRenderTargetImage(IDirect3DDevice3 *pDevice) {
     HRESULT hr;
 
-    com_ptr<IDirectDrawSurface4> pRenderTarget;
+    IDirectDrawSurface4 *pRenderTarget = nullptr;
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (FAILED(hr)) {
         return NULL;
@@ -166,6 +57,7 @@ getRenderTargetImage(IDirect3DDevice3 *pDevice) {
 void
 dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
+    char label[128];
     HRESULT hr;
 
     writer.beginMember("textures");
@@ -185,27 +77,10 @@ dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
             continue;
         }
 
-        image::Image *image = getSurfaceImage(pDevice, pLevel);
-        if (image) {
-            char label[128];
-            _snprintf(label, sizeof label, "PS_RESOURCE_%lu", Stage);
-
-            writer.beginMember(label);
-            StateWriter::ImageDesc imgDesc;
-            imgDesc.depth = 1;
-            imgDesc.format = image->formatName;
-            writer.writeImage(image, imgDesc);
-            writer.endMember();
-            delete image;
-        }
-
-        // Traverse mipmap chain
         DWORD Level = 0;
         while (pLevel) {
             image::Image *image = getSurfaceImage(pDevice, pLevel);
             if (image) {
-                char label[128];
-
                 _snprintf(label, sizeof label, "PS_RESOURCE_%lu_LEVEL_%lu", Stage, Level);
 
                 writer.beginMember(label);
@@ -227,8 +102,9 @@ dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
 
             pLevel->Release();
 
-            if (FAILED(hr) || !pNext)
+            if (FAILED(hr) || !pNext) {
                 break;
+            }
 
             pLevel = pNext;
             Level++;
@@ -239,74 +115,6 @@ dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
     writer.endMember(); // textures
 }
 
-struct CBContext {
-    IDirect3DDevice3* pDevice;
-    StateWriter* writer;
-    struct {
-        uint8_t backbuffer;
-        uint8_t frontbuffer;
-        uint8_t primarysurface;
-        uint8_t offscreenplain;
-        uint8_t overlay;
-        uint8_t zbuffer;
-        uint8_t stencilbuffer;
-        uint8_t unknown;
-    } counters;
-
-    CBContext(IDirect3DDevice3* pDevice, StateWriter* writer) {
-      this->pDevice = pDevice;
-      this->writer = writer;
-      this->counters = {0};
-    };
-
-    ~CBContext() {};
-};
-
-HRESULT CALLBACK
-EnumAttachedSurfacesCB(IDirectDrawSurface4* pSurface, DDSURFACEDESC2* desc, void* lpContext)
-{
-    char label[128];
-    CBContext* context = static_cast<CBContext*>(lpContext);
-
-    if (!context)
-        return DDENUMRET_CANCEL;
-
-    if (!pSurface || !desc || desc->dwWidth == 0 || desc->dwHeight == 0)
-        return DDENUMRET_OK;
-
-    if (desc->ddsCaps.dwCaps & DDSCAPS_FRONTBUFFER) {
-        _snprintf(label, sizeof label, "FRONTBUFFER_%u", context->counters.frontbuffer++);
-    } else if (desc->ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
-        _snprintf(label, sizeof label, "BACKBUFFER_%u", context->counters.backbuffer++);
-    } else if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-        _snprintf(label, sizeof label, "PRIMARYSURFACE_%u", context->counters.primarysurface++);
-    } else if (desc->ddsCaps.dwCaps & DDSCAPS_OFFSCREENPLAIN) {
-        _snprintf(label, sizeof label, "OFFSCREENPLAIN_%u", context->counters.offscreenplain++);
-    } else if (desc->ddsCaps.dwCaps & DDSCAPS_OVERLAY) {
-        _snprintf(label, sizeof label, "OVERLAY_%u", context->counters.overlay++);
-    } else if (desc->ddsCaps.dwCaps & DDSCAPS_ZBUFFER) {
-        if (desc->ddpfPixelFormat.dwFlags & DDPF_STENCILBUFFER)
-            _snprintf(label, sizeof label, "STENCILBUFFER_%u", context->counters.stencilbuffer++);
-        else
-            _snprintf(label, sizeof label, "ZBUFFER_%u", context->counters.zbuffer++);
-    } else {
-        _snprintf(label, sizeof label, "UNKNOWN_%u", context->counters.unknown++);
-    }
-
-    image::Image* image = getSurfaceImage(context->pDevice, pSurface);
-    if (image) {
-        context->writer->beginMember(label);
-        StateWriter::ImageDesc imgDesc;
-        imgDesc.depth = 1;
-        imgDesc.format = image->formatName;
-        context->writer->writeImage(image, imgDesc);
-        context->writer->endMember();
-        delete image;
-    }
-
-    return DDENUMRET_OK;
-}
-
 void
 dumpFramebuffer(StateWriter &writer, IDirect3DDevice3 *pDevice)
 {
@@ -315,7 +123,7 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice3 *pDevice)
     writer.beginMember("framebuffer");
     writer.beginObject();
 
-    com_ptr<IDirectDrawSurface4> pRenderTarget;
+    IDirectDrawSurface4 *pRenderTarget = nullptr;
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (SUCCEEDED(hr) && pRenderTarget) {
         image::Image *image;
@@ -330,7 +138,7 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice3 *pDevice)
             delete image;
         }
 
-        auto context = std::make_unique<struct CBContext>(pDevice, &writer);
+        auto context = std::make_unique<struct CBContext<IDirect3DDevice3>>(pDevice, &writer);
         pRenderTarget->EnumAttachedSurfaces(context.get(), &EnumAttachedSurfacesCB);
     }
 

@@ -227,6 +227,11 @@ if (WIN32)
                 ${CMAKE_SOURCE_DIR}/specs/stdapi.py
         )
         set (D3DSTATE_SOURCES ${D3DSTATE_SOURCES}
+            d3dcommon.cpp
+            d3d3state.cpp
+            d3d3state_images.cpp
+            d3d5state.cpp
+            d3d5state_images.cpp
             d3d6state.cpp
             d3d6state_images.cpp
             d3d7state.cpp

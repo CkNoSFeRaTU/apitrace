@@ -35,11 +35,15 @@
 #endif
 
 
+struct IDirect3DDevice;
+struct IDirect3DDevice2;
 struct IDirect3DDevice3;
 struct IDirect3DDevice7;
 struct IDirect3DDevice8;
 struct IDirect3DDevice9;
 struct IDirect3DSwapChain9;
+struct IDirect3DTexture2;
+struct IDirectDrawSurface7;
 struct IDXGISwapChain;
 struct ID3D10Device;
 struct ID3D10Resource;
@@ -58,6 +62,44 @@ namespace d3dstate {
 
 
 extern const GUID GUID_D3DSTATE;
+
+/*
+ * D3D3
+ */
+
+image::Image *
+getRenderTargetImage(IDirect3DDevice *pDevice);
+
+void
+dumpTextures(StateWriter& writer, IDirect3DDevice *pDevice);
+
+void
+dumpFramebuffer(StateWriter& writer, IDirect3DDevice *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirect3DDevice *pDevice);
+
+/*
+ * D3D5
+ */
+
+image::Image *
+getRenderTargetImage(IDirect3DDevice2 *pDevice);
+
+void
+dumpTextures(StateWriter& writer, IDirect3DDevice2 *pDevice);
+
+void
+dumpFramebuffer(StateWriter& writer, IDirect3DDevice2 *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirect3DDevice2 *pDevice);
+
+void
+setTextureMap(DWORD hTexture, IDirect3DTexture2 *pTexture);
+
+void
+setTexture(DWORD hTexture);
 
 
 /*
@@ -91,7 +133,6 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice);
 
 void
 dumpDevice(StateWriter &writer, IDirect3DDevice7 *pDevice);
-
 
 /*
  * D3D8
@@ -184,7 +225,6 @@ dumpDevice(StateWriter &writer, ID3D11DeviceContext *pDeviceContext);
 
 
 #endif /* HAVE_DXGI */
-
 
 } /* namespace d3dstate */
 

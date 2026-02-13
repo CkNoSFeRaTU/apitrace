@@ -120,6 +120,8 @@ namespace trace {
      */
     extern LocalWriter localWriter;
 
+    void fakeFree(const void *ptr);
+    void fakeMalloc(const void *ptr, size_t size);
     void fakeMemcpy(const void *ptr, size_t size);
 
 } /* namespace trace */

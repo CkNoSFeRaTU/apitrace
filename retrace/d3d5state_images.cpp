@@ -25,9 +25,11 @@
 
 
 #include <assert.h>
+#include <initguid.h>
 #include <stdint.h>
 
 #include <list>
+#include <map>
 
 #include "image.hpp"
 #include "state_writer.hpp"
@@ -37,11 +39,51 @@
 
 namespace d3dstate {
 
+static IDirect3DTexture2 *lastSetTexture = nullptr;
+static std::map<DWORD, IDirect3DTexture2 *> textureMap;
+
+
+static IDirect3DTexture2 *
+getTextureMap(DWORD hTexture) {
+    if (hTexture == 0) {
+        return NULL;
+    }
+
+    auto it = textureMap.find(hTexture);
+    if (it == textureMap.end()) {
+        return NULL;
+    }
+
+    return it->second;
+}
+
+void
+setTextureMap(DWORD hTexture, IDirect3DTexture2 *pSurface) {
+    if (!hTexture) {
+        return;
+    }
+
+    if (pSurface) {
+        textureMap[hTexture] = pSurface;
+    } else {
+        textureMap.erase(hTexture);
+    }
+}
+
+void
+setTexture(DWORD hTexture) {
+    if (!hTexture) {
+        return;
+    }
+
+    lastSetTexture = getTextureMap(hTexture);
+}
+
 image::Image *
-getRenderTargetImage(IDirect3DDevice7 *pDevice) {
+getRenderTargetImage(IDirect3DDevice2 *pDevice) {
     HRESULT hr;
 
-    IDirectDrawSurface7 *pRenderTarget = nullptr;
+    IDirectDrawSurface *pRenderTarget = nullptr;
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (FAILED(hr)) {
         return NULL;
@@ -53,70 +95,22 @@ getRenderTargetImage(IDirect3DDevice7 *pDevice) {
 
 
 void
-dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpTextures(StateWriter &writer, IDirect3DDevice2 *pDevice)
 {
     char label[128];
-    HRESULT hr;
 
     writer.beginMember("textures");
     writer.beginObject();
 
-    for (DWORD Stage = 0; Stage < 8; ++Stage) {
-        IDirectDrawSurface7 *pTexture = nullptr;
-        hr = pDevice->GetTexture(Stage, &pTexture);
-        if (FAILED(hr) || !pTexture) {
-            continue;
-        }
-
-        DDSURFACEDESC2 desc;
-        ZeroMemory(&desc, sizeof(desc));
-        desc.dwSize = sizeof(desc);
-        hr = pTexture->GetSurfaceDesc(&desc);
-        if (FAILED(hr)) {
-            continue;
-        }
-
-        bool isCube = desc.ddsCaps.dwCaps & DDSCAPS2_CUBEMAP;
-
-        DWORD NumFaces = isCube ? 6 : 1;
-        static const DWORD cubeFaceCaps[6] = {
-            DDSCAPS2_CUBEMAP_POSITIVEX,
-            DDSCAPS2_CUBEMAP_NEGATIVEX,
-            DDSCAPS2_CUBEMAP_POSITIVEY,
-            DDSCAPS2_CUBEMAP_NEGATIVEY,
-            DDSCAPS2_CUBEMAP_POSITIVEZ,
-            DDSCAPS2_CUBEMAP_NEGATIVEZ
-        };
-
-        // For each face (1 for normal textures)
-        for (DWORD Face = 0; Face < NumFaces; ++Face) {
-
-            // Start with base level of this face
-            IDirectDrawSurface7 *pLevel = nullptr;
-
-            if (isCube) {
-                DDSCAPS2 capsFace = {};
-                capsFace.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_COMPLEX;
-                capsFace.dwCaps2 = cubeFaceCaps[Face];
-
-                hr = pTexture->GetAttachedSurface(&capsFace, &pLevel);
-                if (FAILED(hr) || !pLevel) {
-                    continue;
-                }
-            } else {
-                pLevel = pTexture;
-                pLevel->AddRef();
-            }
-
+    IDirectDrawSurface *pLevel = nullptr;
+    if (lastSetTexture) {
+        HRESULT hr = lastSetTexture->QueryInterface(IID_IDirectDrawSurface, (void **)&pLevel);
+        if (SUCCEEDED(hr) && pLevel) {
             DWORD Level = 0;
             while (pLevel) {
                 image::Image *image = getSurfaceImage(pDevice, pLevel);
                 if (image) {
-                    if (isCube) {
-                        _snprintf(label, sizeof label, "PS_RESOURCE_%lu_FACE_%lu_LEVEL_%lu", Stage, Face, Level);
-                    } else {
-                        _snprintf(label, sizeof label, "PS_RESOURCE_%lu_LEVEL_%lu", Stage, Level);
-                    }
+                    _snprintf(label, sizeof label, "PS_RESOURCE_0_LEVEL_%lu", Level);
 
                     writer.beginMember(label);
                     StateWriter::ImageDesc imgDesc;
@@ -128,11 +122,10 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
                 }
 
                 // Get next mip level
-                DDSCAPS2 capsMips = {};
+                DDSCAPS capsMips = {};
                 capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
-                capsMips.dwCaps2 = isCube ? cubeFaceCaps[Face] : 0;
 
-                com_ptr<IDirectDrawSurface7> pNext = nullptr;
+                IDirectDrawSurface *pNext = nullptr;
                 hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
 
                 pLevel->Release();
@@ -152,14 +145,14 @@ dumpTextures(StateWriter &writer, IDirect3DDevice7 *pDevice)
 }
 
 void
-dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
+dumpFramebuffer(StateWriter &writer, IDirect3DDevice2 *pDevice)
 {
     HRESULT hr;
 
     writer.beginMember("framebuffer");
     writer.beginObject();
 
-    IDirectDrawSurface7 *pRenderTarget = nullptr;
+    IDirectDrawSurface *pRenderTarget = nullptr;
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (SUCCEEDED(hr) && pRenderTarget) {
         image::Image *image;
@@ -174,7 +167,7 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice7 *pDevice)
             delete image;
         }
 
-        auto context = std::make_unique<struct CBContext<IDirect3DDevice7>>(pDevice, &writer);
+        auto context = std::make_unique<struct CBContext<IDirect3DDevice2>>(pDevice, &writer);
         pRenderTarget->EnumAttachedSurfaces(context.get(), &EnumAttachedSurfacesCB);
     }
 

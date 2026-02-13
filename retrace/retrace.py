@@ -272,7 +272,9 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
             self.visit(polymorphic.defaultType, lvalue, rvalue)
     
     def visitOpaque(self, opaque, lvalue, rvalue):
-        raise UnsupportedType
+        # FIXME: temporary hack for DDraw's enumeration callbacks
+#        raise UnsupportedType
+        pass
 
 
 class OpaqueValueDeserializer(ValueDeserializer):
