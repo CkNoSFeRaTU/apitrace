@@ -24,51 +24,34 @@
  **************************************************************************/
 
 
-#include <assert.h>
-#include <initguid.h>
-#include <stdint.h>
+#include <stdio.h>
 
-#include "image.hpp"
+#include <iostream>
+#include <sstream>
+#include <memory>
+
 #include "state_writer.hpp"
-#include "com_ptr.hpp"
-#include "d3dcommon.hpp"
 #include "d3dimports.hpp"
 #include "d3dstate.hpp"
 
+
 namespace d3dstate {
 
-image::Image *
-getRenderTargetImage(IDirect3DDevice *pDevice) {
-    /*
-     * TODO: there are no API to retrieve render target in d3d3 and prior.
-     * There your "render target" is the surface you create d3d device from.
-     * So we have to intercept d3d device creation via QueryInterface and save surface pointer.
-     */
-
-    return nullptr;
-}
-
-
 void
-dumpTextures(StateWriter &writer, IDirect3DDevice *pDevice)
+dumpDevice(StateWriter &writer)
 {
-    writer.beginMember("textures");
+    writer.beginMember("parameters");
     writer.beginObject();
-
-    ddrawSurfaceDump(writer);
-
-    /*
-     * TODO: everything in d3d3 and prior is done via execute buffer.
-     * So if we want to dump textures we have to intercept and parse it's command stream.
-     */
-
     writer.endObject();
-    writer.endMember(); // textures
-}
+    writer.endMember(); // parameters
 
-void
-dumpFramebuffer(StateWriter &writer, IDirect3DDevice *pDevice)
-{
+    writer.beginMember("shaders");
+    writer.beginObject();
+    writer.endObject();
+    writer.endMember(); // shaders
+
+    dumpTextures(writer);
+
     writer.beginMember("framebuffer");
     writer.beginObject();
 
@@ -76,5 +59,28 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice *pDevice)
     writer.endMember(); // framebuffer
 }
 
+void
+dumpDevice(StateWriter &writer, IDirectDraw *pDevice)
+{
+    dumpDevice(writer);
+}
+void
+
+dumpDevice(StateWriter &writer, IDirectDraw2 *pDevice)
+{
+    dumpDevice(writer);
+}
+
+void
+dumpDevice(StateWriter &writer, IDirectDraw4 *pDevice)
+{
+    dumpDevice(writer);
+}
+
+void
+dumpDevice(StateWriter &writer, IDirectDraw7 *pDevice)
+{
+    dumpDevice(writer);
+}
 
 } /* namespace d3dstate */

@@ -63,6 +63,28 @@ class D3DRetracer(Retracer):
             print(r'        else if (_this == d3d7Dumper.pLastDevice) {')
             print(r'            d3d7Dumper.unbindDevice(static_cast<IDirect3DDevice7*>(_this));')
             print(r'        }')
+            print(r'        else if (_this == ddrawDumper.pLastDevice) {')
+            print(r'            ddrawDumper.unbindDevice(static_cast<IDirectDraw*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == ddraw2Dumper.pLastDevice) {')
+            print(r'            ddraw2Dumper.unbindDevice(static_cast<IDirectDraw2*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == ddraw4Dumper.pLastDevice) {')
+            print(r'            ddraw4Dumper.unbindDevice(static_cast<IDirectDraw4*>(_this));')
+            print(r'        }')
+            print(r'        else if (_this == ddraw7Dumper.pLastDevice) {')
+            print(r'            ddraw7Dumper.unbindDevice(static_cast<IDirectDraw7*>(_this));')
+            print(r'        }')
+            print(r'        else {')
+            print(r'             using S = std::decay_t<decltype(d3dstate::lastSetSurface)>;')
+            print(r'             if constexpr(!std::is_same_v<S, std::monostate>) {')
+            print(r'                  d3dstate::setSurface(std::monostate{});')
+            print(r'             }')
+#            print(r'             using T = std::decay_t<decltype(d3dstate::lastSetTexture)>;')
+#            print(r'             if constexpr(!std::is_same_v<S, std::monostate>) {')
+#            print(r'                  d3dstate::deleteTexture(std::monostate{});')
+#            print(r'             }')
+            print(r'        }')
             print(r'    }')
         elif interface.name == 'IDirect3DDevice' and method.name != 'Release':
             print(r'    d3d3Dumper.bindDevice(_this);')
@@ -72,6 +94,22 @@ class D3DRetracer(Retracer):
             print(r'    d3d6Dumper.bindDevice(_this);')
         elif interface.name == 'IDirect3DDevice7' and method.name != 'Release':
             print(r'    d3d7Dumper.bindDevice(_this);')
+        elif interface.name == 'IDirectDraw' and method.name != 'Release':
+            print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
+            print(r'         ddrawDumper.bindDevice(_this);')
+            print(r'    }')
+        elif interface.name == 'IDirectDraw2' and method.name != 'Release':
+            print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
+            print(r'        ddraw2Dumper.bindDevice(_this);')
+            print(r'    }')
+        elif interface.name == 'IDirectDraw4' and method.name != 'Release':
+            print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
+            print(r'        ddraw4Dumper.bindDevice(_this);')
+            print(r'    }')
+        elif interface.name == 'IDirectDraw7' and method.name != 'Release':
+            print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
+            print(r'        ddraw7Dumper.bindDevice(_this);')
+            print(r'    }')
 
         # notify frame has been completed
         # process events after presents
@@ -224,7 +262,7 @@ class D3DRetracer(Retracer):
             print('        d3dretrace::setHDC((*_ar->values[0]).toUInt(), phDC[0]);')
             print('    }')
 
-        if interface.name == 'IDirect3DTexture2' and method.name == 'GetHandle':
+        if interface.name.startswith('IDirect3DTexture') and method.name == 'GetHandle':
             print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpHandle').name)
             print(r'        d3dstate::setTextureMap(*%s, _this);' % method.getArgByName('lpHandle').name)
             print(r'    }')
@@ -232,6 +270,13 @@ class D3DRetracer(Retracer):
         if interface.name == 'IDirect3DDevice2' and method.name == 'SetRenderState':
             print(r'    if (SUCCEEDED(_result) && %s == D3DRENDERSTATE_TEXTUREHANDLE) {' % method.getArgByName('dwRenderStateType').name)
             print(r'        d3dstate::setTexture(%s);' % method.getArgByName('dwRenderState').name)
+            print(r'    }')
+
+        if interface.name.startswith('IDirectDrawSurface'):
+            print(r'    if (SUCCEEDED(_result)) {')
+            print(r'          d3dstate::setSurface(_this);')
+            print(r'    } else {')
+            print(r'          d3dstate::setSurface(std::monostate{});')
             print(r'    }')
 
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):
@@ -258,9 +303,14 @@ def main():
     api = API()
 
     print(r'#include "d3dimports.hpp"')
+    print(r'#include "d3dcommon.hpp"')
     print(r'#include "d3d7size.hpp"')
     api.addModule(ddraw)
     print()
+    print('''static d3dretrace::D3DDumper<IDirectDraw> ddrawDumper;''')
+    print('''static d3dretrace::D3DDumper<IDirectDraw2> ddraw2Dumper;''')
+    print('''static d3dretrace::D3DDumper<IDirectDraw4> ddraw4Dumper;''')
+    print('''static d3dretrace::D3DDumper<IDirectDraw7> ddraw7Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice> d3d3Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice2> d3d5Dumper;''')
     print('''static d3dretrace::D3DDumper<IDirect3DDevice3> d3d6Dumper;''')

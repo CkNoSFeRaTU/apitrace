@@ -27,6 +27,8 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include <variant>
+
 #include "image.hpp"
 #include "com_ptr.hpp"
 #include "d3dimports.hpp"
@@ -115,14 +117,30 @@ EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*
 extern template HRESULT CALLBACK
 EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);
 
-template <typename D, typename S>
+template <typename S>
 image::Image *
-getSurfaceImage(D *pDevice, S *pSurface);
+getSurfaceImage(S *pSurface);
 extern template image::Image*
-getSurfaceImage<IDirect3DDevice2, IDirectDrawSurface>(IDirect3DDevice2*, IDirectDrawSurface*);
+getSurfaceImage<IDirectDrawSurface>(IDirectDrawSurface*);
 extern template image::Image*
-getSurfaceImage<IDirect3DDevice3, IDirectDrawSurface4>(IDirect3DDevice3*, IDirectDrawSurface4*);
+getSurfaceImage<IDirectDrawSurface2>(IDirectDrawSurface2*);
 extern template image::Image*
-getSurfaceImage<IDirect3DDevice7, IDirectDrawSurface7>(IDirect3DDevice7*, IDirectDrawSurface7*);
+getSurfaceImage<IDirectDrawSurface3>(IDirectDrawSurface3*);
+extern template image::Image*
+getSurfaceImage<IDirectDrawSurface4>(IDirectDrawSurface4*);
+extern template image::Image*
+getSurfaceImage<IDirectDrawSurface7>(IDirectDrawSurface7*);
+
+using Surface = std::variant<IDirectDrawSurface*, IDirectDrawSurface2*, IDirectDrawSurface3*, IDirectDrawSurface4*, IDirectDrawSurface7*, std::monostate>;
+extern Surface lastSetSurface;
+void
+setSurface(Surface pSurface);
+
+using Texture = std::variant<IDirect3DTexture*, IDirect3DTexture2*, std::monostate>;
+extern Texture lastSetTexture;
+void
+setTextureMap(DWORD hTexture, Texture pTexture);
+void
+setTexture(DWORD hTexture);
 
 } /* namespace d3dstate */

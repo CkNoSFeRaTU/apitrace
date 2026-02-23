@@ -34,7 +34,10 @@
 #include <dxgiformat.h>
 #endif
 
-
+struct IDirectDraw;
+struct IDirectDraw2;
+struct IDirectDraw4;
+struct IDirectDraw7;
 struct IDirect3DDevice;
 struct IDirect3DDevice2;
 struct IDirect3DDevice3;
@@ -62,6 +65,56 @@ namespace d3dstate {
 
 
 extern const GUID GUID_D3DSTATE;
+
+/*
+ * Shared
+ */
+
+void
+ddrawSurfaceDump(StateWriter &writer);
+
+void
+dumpTextures(StateWriter &writer);
+
+/*
+ * DDraw
+ */
+
+image::Image *
+getRenderTargetImage(IDirectDraw *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirectDraw *pDevice);
+
+/*
+ * DDraw2
+ */
+
+image::Image *
+getRenderTargetImage(IDirectDraw2 *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirectDraw2 *pDevice);
+
+/*
+ * DDraw4
+ */
+
+image::Image *
+getRenderTargetImage(IDirectDraw4 *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirectDraw4 *pDevice);
+
+/*
+ * DDraw7
+ */
+
+image::Image *
+getRenderTargetImage(IDirectDraw7 *pDevice);
+
+void
+dumpDevice(StateWriter& writer, IDirectDraw7 *pDevice);
 
 /*
  * D3D3
@@ -94,12 +147,6 @@ dumpFramebuffer(StateWriter& writer, IDirect3DDevice2 *pDevice);
 
 void
 dumpDevice(StateWriter& writer, IDirect3DDevice2 *pDevice);
-
-void
-setTextureMap(DWORD hTexture, IDirect3DTexture2 *pTexture);
-
-void
-setTexture(DWORD hTexture);
 
 
 /*

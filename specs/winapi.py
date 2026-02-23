@@ -237,4 +237,9 @@ IUnknown.methods = (
 	StdMethod(ULONG, "Release", ()),
 )
 
+IClassFactory = Interface("IClassFactory", IUnknown)
+IClassFactory.methods += [
+    StdMethod(HRESULT, "CreateInstance", [(ObjPointer(IUnknown), "pUnkOuter"), (REFIID, "riid"), Out(Pointer(ObjPointer(Void)), "ppvObject")]),
+    StdMethod(HRESULT, "LockServer", [(BOOL, "fLock")]),
+]
 

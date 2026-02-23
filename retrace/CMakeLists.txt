@@ -236,6 +236,8 @@ if (WIN32)
             d3d6state_images.cpp
             d3d7state.cpp
             d3d7state_images.cpp
+            ddrawstate.cpp
+            ddrawstate_images.cpp
         )
     else ()
         message (FATAL_ERROR "d3d.h is required.")

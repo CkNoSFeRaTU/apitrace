@@ -45,6 +45,16 @@ class DDrawTracer(DllTracer):
                 ('VOID *', 'm_pbData', '0'),
             ]
 
+        if interface.name == "IDirect3DDevice2":
+            variables += [
+                ('D3DVERTEXTYPE', '_LastVertexType', 'D3DVT_VERTEX'),
+            ]
+
+        if interface.name == "IDirect3DDevice3":
+            variables += [
+                ('DWORD', '_LastVertexType', '0'),
+            ]
+
         return variables
     def implementWrapperInterfaceMethodBody(self, interface, base, method):
         resultOverride = None
@@ -192,6 +202,12 @@ class DDrawTracer(DllTracer):
             else:
                 print('    _result = _this->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, &EnumAttachedSurfacesCB);')
 
+
+        if interface.name == 'IDirect3DDevice2' and method.name == 'Begin':
+            print('    _LastVertexType = d3dvtVertexType;')
+
+        if interface.name == 'IDirect3DDevice3' and method.name == 'Begin':
+            print('    _LastVertexType = dwVertexTypeDesc;')
 
         DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags, afterCall = afterCall)
 

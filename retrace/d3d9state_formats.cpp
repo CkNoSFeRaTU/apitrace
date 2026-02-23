@@ -233,6 +233,8 @@ convertFormatDXGI(D3DFORMAT Format)
         return DXGI_FORMAT_BC4_UNORM;
     case D3DFMT_ATI2N:
         return DXGI_FORMAT_BC5_UNORM;
+    case D3DFMT_YUY2:
+        return DXGI_FORMAT_YUY2;
     default:
         return DXGI_FORMAT_UNKNOWN;
     }

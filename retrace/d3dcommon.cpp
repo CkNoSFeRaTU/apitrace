@@ -28,6 +28,8 @@
 #include <stdint.h>
 
 #include <list>
+#include <map>
+#include <variant>
 
 #include "image.hpp"
 #include "state_writer.hpp"
@@ -50,10 +52,16 @@ ConvertImage(D3DFORMAT SrcFormat,
 D3DFORMAT
 convertFormat(const DDPIXELFORMAT & ddpf)
 {
+    /*
+     * TODO: For some reason at least WineD3D in some cases return dwSize=0 even when descriptor itself is not jank.
+     * e.g. that happens in Sea Dogs which uses IClassFactory. Need investigation, so comment-out this check for now.
+     */
+    /*
     if (ddpf.dwSize != sizeof(ddpf)) {
         std::cerr << "warning: wrong format dwSize: " << ddpf.dwSize << "\n";
         return D3DFMT_UNKNOWN;
     }
+    */
 
     bool hasAlphaPixels = ddpf.dwFlags & DDPF_ALPHAPIXELS;
     if (ddpf.dwFlags & DDPF_RGB) {
@@ -122,8 +130,6 @@ convertFormat(const DDPIXELFORMAT & ddpf)
                 return D3DFMT_X8L8V8U8;
             }
             break;
-        case DDPF_FOURCC:
-            return static_cast<D3DFORMAT>(ddpf.dwFourCC);
         }
     }
 
@@ -154,13 +160,16 @@ convertFormat(const DDPIXELFORMAT & ddpf)
         }
     }
 
+    if (ddpf.dwFlags & DDPF_FOURCC) {
+        return static_cast<D3DFORMAT>(ddpf.dwFourCC);
+    }
 
     return D3DFMT_UNKNOWN;
 }
 
-template <typename D, typename S>
+template <typename S>
 image::Image *
-getSurfaceImage(D *pDevice, S *pSurface)
+getSurfaceImage(S *pSurface)
 {
     HRESULT hr;
 
@@ -213,6 +222,42 @@ getSurfaceImage(D *pDevice, S *pSurface)
             }
         }
 
+        // TODO: move P8 to d3d9 as it technically exist in d3d8/d3d9.
+        if (Format == D3DFMT_P8) {
+            IDirectDrawPalette *pPalette = nullptr;
+            hr = pSurface->GetPalette(&pPalette);
+            if (FAILED(hr)) {
+                return nullptr;
+            }
+
+            PALETTEENTRY entries[256];
+            if (FAILED(pPalette->GetEntries(0, 0, 256, entries))) {
+                pPalette->Release();
+                return nullptr;
+            }
+
+            image = new image::Image(desc.dwWidth, desc.dwHeight, 3, true, image::TYPE_UNORM8);
+            if (!image) {
+                pPalette->Release();
+                return nullptr;
+            }
+
+            uint8_t *dst = image->start();
+            const uint8_t *src = (uint8_t *)desc.lpSurface;
+            for (unsigned y = 0; y < desc.dwHeight; ++y) {
+                for (unsigned x = 0; x < desc.dwWidth; ++x) {
+                    PALETTEENTRY color = entries[src[x]];
+                    dst[3*x + 0] = color.peRed;
+                    dst[3*x + 1] = color.peGreen;
+                    dst[3*x + 2] = color.peBlue;
+                }
+                src += pitch;
+                dst += image->stride();
+            }
+            image->formatName = formatToString(Format);
+            return image;
+        }
+
         image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight);
     }
 
@@ -222,11 +267,15 @@ getSurfaceImage(D *pDevice, S *pSurface)
 }
 
 template image::Image *
-getSurfaceImage<IDirect3DDevice2, IDirectDrawSurface>(IDirect3DDevice2 *, IDirectDrawSurface *);
+getSurfaceImage<IDirectDrawSurface>(IDirectDrawSurface *);
 template image::Image *
-getSurfaceImage<IDirect3DDevice3, IDirectDrawSurface4>(IDirect3DDevice3 *, IDirectDrawSurface4 *);
+getSurfaceImage<IDirectDrawSurface2>(IDirectDrawSurface2 *);
 template image::Image *
-getSurfaceImage<IDirect3DDevice7, IDirectDrawSurface7>(IDirect3DDevice7 *, IDirectDrawSurface7 *);
+getSurfaceImage<IDirectDrawSurface3>(IDirectDrawSurface3 *);
+template image::Image *
+getSurfaceImage<IDirectDrawSurface4>(IDirectDrawSurface4 *);
+template image::Image *
+getSurfaceImage<IDirectDrawSurface7>(IDirectDrawSurface7 *);
 
 template <typename S, typename D>
 HRESULT CALLBACK
@@ -264,7 +313,7 @@ EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void* pContext)
         _snprintf(label, sizeof label, "UNKNOWN_%u", context->counters.unknown++);
     }
 
-    image::Image* image = getSurfaceImage(context->pDevice, pSurface);
+    image::Image* image = getSurfaceImage(pSurface);
     if (image) {
         context->writer->beginMember(label);
         StateWriter::ImageDesc imgDesc;
@@ -284,5 +333,50 @@ template HRESULT CALLBACK
 EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);
 template HRESULT CALLBACK
 EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);
+
+Surface lastSetSurface = std::monostate{};
+Texture lastSetTexture = std::monostate{};
+static std::map<DWORD, Texture> textureMap;
+
+static Texture
+getTextureMap(DWORD hTexture) {
+    if (hTexture == 0) {
+        return std::monostate{};
+    }
+
+    auto it = textureMap.find(hTexture);
+    if (it == textureMap.end()) {
+        return std::monostate{};
+    }
+
+    return it->second;
+}
+
+void
+setTextureMap(DWORD hTexture, Texture pTexture) {
+    if (!hTexture) {
+        return;
+    }
+
+    if constexpr (!std::is_same_v<Texture, std::monostate>) {
+        textureMap[hTexture] = pTexture;
+    } else {
+        textureMap.erase(hTexture);
+    }
+}
+
+void
+setTexture(DWORD hTexture) {
+    if (!hTexture) {
+        return;
+    }
+
+    lastSetTexture = getTextureMap(hTexture);
+}
+
+void
+setSurface(Surface pSurface) {
+    lastSetSurface = pSurface;
+}
 
 } /* namespace d3dstate */

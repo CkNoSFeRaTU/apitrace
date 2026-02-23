@@ -1818,7 +1818,7 @@ ddraw.addFunctions([
     StdFunction(Void, "ReleaseDDThreadLock", [], internal=True),
     StdFunction(DWORD, "D3DParseUnknownCommand", [(LPVOID, "lpCmd"), Out(Pointer(LPVOID), "lpRetCmd")], internal=True),
     StdFunction(HRESULT, "DllCanUnloadNow", [], internal=True),
-    StdFunction(HRESULT, "DllGetClassObject", [(REFCLSID, "rclsid"), (REFIID, "riid"), Out(Pointer(ObjPointer(Void)), "ppv")], sideeffects=False),
+    StdFunction(HRESULT, "DllGetClassObject", [(REFCLSID, "rclsid"), (REFIID, "riid"), Out(Pointer(ObjPointer(Void)), "ppvObj")]),
 
     # XXX
     StdFunction(HRESULT, "CompleteCreateSysmemSurface", [Int, Int], internal=True),
@@ -1836,6 +1836,7 @@ ddraw.addFunctions([
 
 # Add otherwise unreferenced interfaces
 ddraw.addInterfaces([
+    IClassFactory,
     IDirectDrawSurface2,
     IDirectDrawSurface3,
     IDirectDrawColorControl,

@@ -50,7 +50,7 @@ getRenderTargetImage(IDirect3DDevice3 *pDevice) {
     }
     assert(pRenderTarget);
 
-    return getSurfaceImage(pDevice, pRenderTarget);
+    return getSurfaceImage(pRenderTarget);
 }
 
 
@@ -79,7 +79,7 @@ dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
 
         DWORD Level = 0;
         while (pLevel) {
-            image::Image *image = getSurfaceImage(pDevice, pLevel);
+            image::Image *image = getSurfaceImage(pLevel);
             if (image) {
                 _snprintf(label, sizeof label, "PS_RESOURCE_%lu_LEVEL_%lu", Stage, Level);
 
@@ -111,6 +111,8 @@ dumpTextures(StateWriter &writer, IDirect3DDevice3 *pDevice)
         }
     }
 
+    ddrawSurfaceDump(writer);
+
     writer.endObject();
     writer.endMember(); // textures
 }
@@ -127,7 +129,7 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice3 *pDevice)
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (SUCCEEDED(hr) && pRenderTarget) {
         image::Image *image;
-        image = getSurfaceImage(pDevice, pRenderTarget);
+        image = getSurfaceImage(pRenderTarget);
         if (image) {
             writer.beginMember("RENDER_TARGET");
             StateWriter::ImageDesc imgDesc;

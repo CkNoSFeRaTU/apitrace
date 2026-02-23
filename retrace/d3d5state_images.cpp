@@ -29,7 +29,6 @@
 #include <stdint.h>
 
 #include <list>
-#include <map>
 
 #include "image.hpp"
 #include "state_writer.hpp"
@@ -38,46 +37,6 @@
 #include "d3dstate.hpp"
 
 namespace d3dstate {
-
-static IDirect3DTexture2 *lastSetTexture = nullptr;
-static std::map<DWORD, IDirect3DTexture2 *> textureMap;
-
-
-static IDirect3DTexture2 *
-getTextureMap(DWORD hTexture) {
-    if (hTexture == 0) {
-        return NULL;
-    }
-
-    auto it = textureMap.find(hTexture);
-    if (it == textureMap.end()) {
-        return NULL;
-    }
-
-    return it->second;
-}
-
-void
-setTextureMap(DWORD hTexture, IDirect3DTexture2 *pSurface) {
-    if (!hTexture) {
-        return;
-    }
-
-    if (pSurface) {
-        textureMap[hTexture] = pSurface;
-    } else {
-        textureMap.erase(hTexture);
-    }
-}
-
-void
-setTexture(DWORD hTexture) {
-    if (!hTexture) {
-        return;
-    }
-
-    lastSetTexture = getTextureMap(hTexture);
-}
 
 image::Image *
 getRenderTargetImage(IDirect3DDevice2 *pDevice) {
@@ -90,7 +49,7 @@ getRenderTargetImage(IDirect3DDevice2 *pDevice) {
     }
     assert(pRenderTarget);
 
-    return getSurfaceImage(pDevice, pRenderTarget);
+    return getSurfaceImage(pRenderTarget);
 }
 
 
@@ -102,43 +61,51 @@ dumpTextures(StateWriter &writer, IDirect3DDevice2 *pDevice)
     writer.beginMember("textures");
     writer.beginObject();
 
+    HRESULT hr = E_INVALIDARG;
+
     IDirectDrawSurface *pLevel = nullptr;
-    if (lastSetTexture) {
-        HRESULT hr = lastSetTexture->QueryInterface(IID_IDirectDrawSurface, (void **)&pLevel);
-        if (SUCCEEDED(hr) && pLevel) {
-            DWORD Level = 0;
-            while (pLevel) {
-                image::Image *image = getSurfaceImage(pDevice, pLevel);
-                if (image) {
-                    _snprintf(label, sizeof label, "PS_RESOURCE_0_LEVEL_%lu", Level);
+    std::visit([&hr, &pLevel](auto& tex) {
+        using T = std::decay_t<decltype(tex)>;
+        if constexpr (!std::is_same_v<T, std::monostate>) {
+            hr = tex->QueryInterface(IID_IDirectDrawSurface, (void **)&pLevel);
+        }
+    }, lastSetTexture);
 
-                    writer.beginMember(label);
-                    StateWriter::ImageDesc imgDesc;
-                    imgDesc.depth = 1;
-                    imgDesc.format = image->formatName;
-                    writer.writeImage(image, imgDesc);
-                    writer.endMember();
-                    delete image;
-                }
+    if (SUCCEEDED(hr) && pLevel) {
+        DWORD Level = 0;
+        while (pLevel) {
+            image::Image *image = getSurfaceImage(pLevel);
+            if (image) {
+                _snprintf(label, sizeof label, "PS_RESOURCE_0_LEVEL_%lu", Level);
 
-                // Get next mip level
-                DDSCAPS capsMips = {};
-                capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
-
-                IDirectDrawSurface *pNext = nullptr;
-                hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
-
-                pLevel->Release();
-
-                if (FAILED(hr) || !pNext) {
-                    break;
-                }
-
-                pLevel = pNext;
-                Level++;
+                writer.beginMember(label);
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
+                writer.endMember();
+                delete image;
             }
+
+            // Get next mip level
+            DDSCAPS capsMips = {};
+            capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
+
+            IDirectDrawSurface *pNext = nullptr;
+            hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
+
+            pLevel->Release();
+
+            if (FAILED(hr) || !pNext) {
+                break;
+            }
+
+            pLevel = pNext;
+            Level++;
         }
     }
+
+    ddrawSurfaceDump(writer);
 
     writer.endObject();
     writer.endMember(); // textures
@@ -156,7 +123,7 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice2 *pDevice)
     hr = pDevice->GetRenderTarget(&pRenderTarget);
     if (SUCCEEDED(hr) && pRenderTarget) {
         image::Image *image;
-        image = getSurfaceImage(pDevice, pRenderTarget);
+        image = getSurfaceImage(pRenderTarget);
         if (image) {
             writer.beginMember("RENDER_TARGET");
             StateWriter::ImageDesc imgDesc;

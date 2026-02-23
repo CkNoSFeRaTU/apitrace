@@ -86,6 +86,9 @@ dumpRenderstate(StateWriter &writer, IDirect3DDevice *pDevice)
      * and parse command stream to save their states.
      */
 
+    writer.beginMember("parameters");
+    writer.beginObject();
+
     dumpViewport(writer, pDevice);
 
     writer.endObject();
