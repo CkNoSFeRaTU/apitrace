@@ -334,7 +334,7 @@ _getMapInfo(IDirect3DExecuteBuffer* pBuffer, D3DEXECUTEBUFFERDESC* pDesc,
     }
 
     pLockedData = pDesc->lpData;
-    if (pDesc->dwFlags & D3DDEB_BUFSIZE) {
-      MappedSize = pDesc->dwBufferSize;
-    }
+    // We should check pDesc->dwFlags & D3DDEB_BUFSIZE.
+    // But at least one wrapper doesn't set this flag despite reporting size correctly.
+    MappedSize = pDesc->dwBufferSize;
 }

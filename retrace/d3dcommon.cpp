@@ -813,9 +813,7 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
             writer.writeIntMember(state.c_str(), value);
         }
     } else if (state == "D3DRENDERSTATE_SRCBLEND"
-        || state == "D3DRENDERSTATE_DESTBLEND"
-        || state == "D3DRENDERSTATE_VERTEXBLEND"
-        || state == "D3DRENDERSTATE_TEXTUREMAPBLEND") {
+        || state == "D3DRENDERSTATE_DESTBLEND") {
         switch (value) {
             case(D3DBLEND_ZERO):
                 writer.writeStringMember(state.c_str(), "D3DBLEND_ZERO");
@@ -986,7 +984,6 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
         }
     } else if (state == "D3DRENDERSTATE_LINEPATTERN") {
         D3DLINEPATTERN *val = (D3DLINEPATTERN*)&value;
-//        std::string buf{std::string("wRepeatFactor = ").append(std::to_string(val->wRepeatFactor)).append(", wLinePattern = ").append(std::to_string(val->wLinePattern))};
         std::ostringstream buf{};
         buf << "wRepeatFactor = " << val->wRepeatFactor << ", wLinePattern = " << val->wLinePattern;
         writer.writeStringMember(state.c_str(), buf.str().c_str());
@@ -995,7 +992,6 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
         || state == "D3DRENDERSTATE_AMBIENT"
         || state == "D3DRENDERSTATE_BORDERCOLOR") {
         writer.writeIntMember(state.c_str(), value);
-
     } else if (state == "D3DRENDERSTATE_FOGTABLEMODE"
         || state == "D3DRENDERSTATE_FOGVERTEXMODE") {
         switch (value) {
@@ -1138,7 +1134,54 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
                 writer.writeIntMember(state.c_str(), value);
                 break;
         }
-
+    } else if (state == "D3DRENDERSTATE_TEXTUREMAPBLEND") {
+        switch (value) {
+            case(D3DTBLEND_DECAL):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_DECAL");
+                break;
+            case(D3DTBLEND_MODULATE):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_MODULATE");
+                break;
+            case(D3DTBLEND_DECALALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_DECALALPHA");
+                break;
+            case(D3DTBLEND_MODULATEALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_MODULATEALPHA");
+                break;
+            case(D3DTBLEND_DECALMASK):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_DECALMASK");
+                break;
+            case(D3DTBLEND_MODULATEMASK):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_MODULATEMASK");
+                break;
+            case(D3DTBLEND_COPY):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_COPY");
+                break;
+            case(D3DTBLEND_ADD):
+                writer.writeStringMember(state.c_str(), "D3DTBLEND_ADD");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_VERTEXBLEND") {
+        switch (value) {
+            case(D3DVBLEND_DISABLE):
+                writer.writeStringMember(state.c_str(), "D3DVBLEND_DISABLE");
+                break;
+            case(D3DVBLEND_1WEIGHT):
+                writer.writeStringMember(state.c_str(), "D3DVBLEND_1WEIGHT");
+                break;
+            case(D3DVBLEND_2WEIGHTS):
+                writer.writeStringMember(state.c_str(), "D3DVBLEND_2WEIGHTS");
+                break;
+            case(D3DVBLEND_3WEIGHTS):
+                writer.writeStringMember(state.c_str(), "D3DVBLEND_3WEIGHTS");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
     } else {
         writer.writeStringMember(state.c_str(), "NOT IMPLEMENTED");
     }
