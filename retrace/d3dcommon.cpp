@@ -29,6 +29,7 @@
 
 #include <list>
 #include <map>
+#include <sstream>
 #include <variant>
 
 #include "image.hpp"
@@ -336,33 +337,108 @@ EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*
 
 Surface lastSetSurface = std::monostate{};
 Texture lastSetTexture = std::monostate{};
-static std::map<DWORD, Texture> textureMap;
+struct textureBind {
+    DWORD hTexture;
+    Texture pTexture;
+};
+static std::map<DWORD, DWORD> stateBlockMap;
+static std::map<DWORD, DWORD> materialMap;
+static std::map<DWORD, textureBind> textureMap;
 
-static Texture
-getTextureMap(DWORD hTexture) {
-    if (hTexture == 0) {
-        return std::monostate{};
+DWORD
+getStateBlockHandle(DWORD hOriginal) {
+    if (hOriginal == 0) {
+        return 0;
     }
 
-    auto it = textureMap.find(hTexture);
-    if (it == textureMap.end()) {
-        return std::monostate{};
+    auto it = stateBlockMap.find(hOriginal);
+    if (it == stateBlockMap.end()) {
+        return 0;
     }
 
     return it->second;
 }
 
 void
-setTextureMap(DWORD hTexture, Texture pTexture) {
-    if (!hTexture) {
+setStateBlockMap(DWORD hOriginal, DWORD hStateBlock) {
+    if (!hOriginal) {
+        return;
+    }
+
+    if (hStateBlock) {
+        stateBlockMap[hOriginal] = hStateBlock;
+    } else {
+        stateBlockMap.erase(hOriginal);
+    }
+}
+
+DWORD
+getMaterialHandle(DWORD hOriginal) {
+    if (hOriginal == 0) {
+        return 0;
+    }
+
+    auto it = materialMap.find(hOriginal);
+    if (it == materialMap.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+void
+setMaterialMap(DWORD hOriginal, DWORD hMaterial) {
+    if (!hOriginal) {
+        return;
+    }
+
+    if (hMaterial) {
+        materialMap[hOriginal] = hMaterial;
+    } else {
+        materialMap.erase(hOriginal);
+    }
+}
+
+DWORD
+getTextureHandle(DWORD hOriginal) {
+    if (hOriginal == 0) {
+        return 0;
+    }
+
+    auto it = textureMap.find(hOriginal);
+    if (it == textureMap.end()) {
+        return 0;
+    }
+
+    return it->second.hTexture;
+}
+
+void
+setTextureMap(DWORD hOriginal, DWORD hTexture, Texture pTexture) {
+    if (!hOriginal || !hTexture) {
         return;
     }
 
     if constexpr (!std::is_same_v<Texture, std::monostate>) {
-        textureMap[hTexture] = pTexture;
+        textureMap[hOriginal] = {hTexture, pTexture};
     } else {
-        textureMap.erase(hTexture);
+        textureMap.erase(hOriginal);
     }
+}
+
+static Texture
+getTextureFromMap(DWORD hTexture) {
+    if (hTexture == 0) {
+        return std::monostate{};
+    }
+
+    for (auto it = textureMap.begin(); it != textureMap.end(); it++) {
+        if (it->second.hTexture == hTexture) {
+            return it->second.pTexture;
+        }
+    }
+
+    return std::monostate{};
 }
 
 void
@@ -371,12 +447,701 @@ setTexture(DWORD hTexture) {
         return;
     }
 
-    lastSetTexture = getTextureMap(hTexture);
+    lastSetTexture = getTextureFromMap(hTexture);
 }
 
 void
 setSurface(Surface pSurface) {
     lastSetSurface = pSurface;
+}
+
+void
+writeTextureRenderState(StateWriter &writer, std::string state, DWORD value)
+{
+/*
+    ("D3DTSS_TEXTURETRANSFORMFLAGS", D3DTEXTURETRANSFORMFLAGS),
+*/
+    if (state == "D3DTSS_MAXMIPLEVEL"
+        || state == "D3DTSS_MAXANISOTROPY") {
+        writer.writeIntMember(state.c_str(), value);
+    } else if (state == "D3DTSS_BUMPENVMAT00"
+        || state == "D3DTSS_BUMPENVMAT01"
+        || state == "D3DTSS_BUMPENVMAT10"
+        || state == "D3DTSS_BUMPENVMAT11"
+        || state == "D3DTSS_MIPMAPLODBIAS"
+        || state == "D3DTSS_BUMPENVLSCALE"
+        || state == "D3DTSS_BUMPENVLOFFSET") {
+        writer.writeFloatMember(state.c_str(), static_cast<float>(value));
+
+    } else if (state == "D3DTSS_COLORARG1"
+        || state == "D3DTSS_COLORARG2"
+        || state == "D3DTSS_ALPHAARG1"
+        || state == "D3DTSS_ALPHAARG2") {
+        switch (value) {
+            case(D3DTA_DIFFUSE):
+                writer.writeStringMember(state.c_str(), "D3DTA_DIFFUSE");
+                break;
+            case(D3DTA_CURRENT):
+                writer.writeStringMember(state.c_str(), "D3DTA_CURRENT");
+                break;
+            case(D3DTA_TEXTURE):
+                writer.writeStringMember(state.c_str(), "D3DTA_TEXTURE");
+                break;
+            case(D3DTA_TFACTOR):
+                writer.writeStringMember(state.c_str(), "D3DTA_TFACTOR");
+                break;
+            case(D3DTA_SPECULAR):
+                writer.writeStringMember(state.c_str(), "D3DTA_SPECULAR");
+                break;
+            case(D3DTA_COMPLEMENT):
+                writer.writeStringMember(state.c_str(), "D3DTA_COMLEMENT");
+                break;
+            case(D3DTA_ALPHAREPLICATE):
+                writer.writeStringMember(state.c_str(), "D3DTA_ALPHAREPLICATE");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_COLOROP"
+        || state == "D3DTSS_ALPHAOP") {
+        switch (value) {
+            case(D3DTOP_DISABLE):
+                writer.writeStringMember(state.c_str(), "D3DTOP_DISABLE");
+                break;
+            case(D3DTOP_SELECTARG1):
+                writer.writeStringMember(state.c_str(), "D3DTOP_SELECTARG1");
+                break;
+            case(D3DTOP_SELECTARG2):
+                writer.writeStringMember(state.c_str(), "D3DTOP_SELECTARG2");
+                break;
+            case(D3DTOP_MODULATE):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATE");
+                break;
+            case(D3DTOP_MODULATE2X):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATE2X");
+                break;
+            case(D3DTOP_MODULATE4X):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATE4X");
+                break;
+            case(D3DTOP_ADD):
+                writer.writeStringMember(state.c_str(), "D3DTOP_ADD");
+                break;
+            case(D3DTOP_ADDSIGNED):
+                writer.writeStringMember(state.c_str(), "D3DTOP_ADDSIGNED");
+                break;
+            case(D3DTOP_ADDSIGNED2X):
+                writer.writeStringMember(state.c_str(), "D3DTOP_ADDSIGNED2X");
+                break;
+            case(D3DTOP_SUBTRACT):
+                writer.writeStringMember(state.c_str(), "D3DTOP_SUBTRACT");
+                break;
+            case(D3DTOP_ADDSMOOTH):
+                writer.writeStringMember(state.c_str(), "D3DTOP_ADDSMOOTH");
+                break;
+            case(D3DTOP_BLENDDIFFUSEALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BLENDDIFFUSEALPHA");
+                break;
+            case(D3DTOP_BLENDTEXTUREALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BLENDTEXTUREALPHA");
+                break;
+            case(D3DTOP_BLENDFACTORALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BLENDFACTORALPHA");
+                break;
+            case(D3DTOP_BLENDTEXTUREALPHAPM):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BLENDTEXTUREALPHAPM");
+                break;
+            case(D3DTOP_BLENDCURRENTALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BLENDCURRENTALPHA");
+                break;
+            case(D3DTOP_PREMODULATE):
+                writer.writeStringMember(state.c_str(), "D3DTOP_PREMODULATE");
+                break;
+            case(D3DTOP_MODULATEALPHA_ADDCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATEALPHA_ADDCOLOR");
+                break;
+            case(D3DTOP_MODULATECOLOR_ADDALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATECOLOR_ADDALPHA");
+                break;
+            case(D3DTOP_MODULATEINVALPHA_ADDCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATEINVALPHA_ADDCOLOR");
+                break;
+            case(D3DTOP_MODULATEINVCOLOR_ADDALPHA):
+                writer.writeStringMember(state.c_str(), "D3DTOP_MODULATEINVCOLOR_ADDALPHA");
+                break;
+            case(D3DTOP_BUMPENVMAP):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BUMPENVMAP");
+                break;
+            case(D3DTOP_BUMPENVMAPLUMINANCE):
+                writer.writeStringMember(state.c_str(), "D3DTOP_BUMPENVMAPLUMINANCE");
+                break;
+            case(D3DTOP_DOTPRODUCT3):
+                writer.writeStringMember(state.c_str(), "D3DTOP_DOTPRODUCT3");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+
+    } else if (state == "D3DTSS_ADDRESS"
+        || state == "D3DTSS_ADDRESSV"
+        || state == "D3DTSS_ADDRESSU") {
+        switch (value) {
+            case(D3DTADDRESS_WRAP):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_WRAP");
+                break;
+            case(D3DTADDRESS_MIRROR):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_MIRROR");
+                break;
+            case(D3DTADDRESS_CLAMP):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_CLAMP");
+                break;
+            case(D3DTADDRESS_BORDER):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_BORDER");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_MAGFILTER") {
+        switch (value) {
+            case(D3DTFG_POINT):
+                writer.writeStringMember(state.c_str(), "D3DTFG_POINT");
+                break;
+            case(D3DTFG_LINEAR):
+                writer.writeStringMember(state.c_str(), "D3DTFG_LINEAR");
+                break;
+            case(D3DTFG_FLATCUBIC):
+                writer.writeStringMember(state.c_str(), "D3DTFG_FLATCUBIC");
+                break;
+            case(D3DTFG_GAUSSIANCUBIC):
+                writer.writeStringMember(state.c_str(), "D3DTFG_GAUSSIANCUBIC");
+                break;
+            case(D3DTFG_ANISOTROPIC):
+                writer.writeStringMember(state.c_str(), "D3DTFG_ANISOTROPIC");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_MINFILTER") {
+        switch (value) {
+            case(D3DTFN_POINT):
+                writer.writeStringMember(state.c_str(), "D3DTFN_POINT");
+                break;
+            case(D3DTFN_LINEAR):
+                writer.writeStringMember(state.c_str(), "D3DTFN_LINEAR");
+                break;
+            case(D3DTFN_ANISOTROPIC):
+                writer.writeStringMember(state.c_str(), "D3DTFN_ANISOTROPIC");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_MIPFILTER") {
+        switch (value) {
+            case(D3DTFP_NONE):
+                writer.writeStringMember(state.c_str(), "D3DTFP_NONE");
+                break;
+            case(D3DTFP_POINT):
+                writer.writeStringMember(state.c_str(), "D3DTFP_POINT");
+                break;
+            case(D3DTFP_LINEAR):
+                writer.writeStringMember(state.c_str(), "D3DTFP_LINEAR");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_TEXCOORDINDEX") {
+        switch (value) {
+            case(D3DTSS_TCI_PASSTHRU):
+                writer.writeStringMember(state.c_str(), "D3DTSS_TCI_PASSTHRU");
+                break;
+            case(D3DTSS_TCI_CAMERASPACENORMAL):
+                writer.writeStringMember(state.c_str(), "D3DTSS_TCI_CAMERASPACENORMAL");
+                break;
+            case(D3DTSS_TCI_CAMERASPACEPOSITION):
+                writer.writeStringMember(state.c_str(), "D3DTSS_TCI_CAMERASPACEPOSITION");
+                break;
+            case(D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR):
+                writer.writeStringMember(state.c_str(), "D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_TEXTURETRANSFORMFLAGS") {
+        switch (value) {
+            case(D3DTTFF_DISABLE):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_DISABLE");
+                break;
+            case(D3DTTFF_COUNT1):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_COUNT1");
+                break;
+            case(D3DTTFF_COUNT2):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_COUNT2");
+                break;
+            case(D3DTTFF_COUNT3):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_COUNT3");
+                break;
+            case(D3DTTFF_COUNT4):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_COUNT4");
+                break;
+            case(D3DTTFF_PROJECTED):
+                writer.writeStringMember(state.c_str(), "D3DTTFF_PROJECTED");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DTSS_BORDERCOLOR") {
+        writer.writeIntMember(state.c_str(), value);
+    } else {
+        writer.writeStringMember(state.c_str(), "NOT IMPLEMENTED");
+    }
+}
+
+void
+writeRenderState(StateWriter &writer, std::string state, DWORD value)
+{
+    if (state == "D3DRENDERSTATE_ANTIALIAS"
+        || state == "D3DRENDERSTATE_TEXTUREPERSPECTIVE"
+        || state == "D3DRENDERSTATE_ZENABLE"
+        || state == "D3DRENDERSTATE_ZWRITEENABLE"
+        || state == "D3DRENDERSTATE_ALPHATESTENABLE"
+        || state == "D3DRENDERSTATE_LASTPIXEL"
+        || state == "D3DRENDERSTATE_DITHERENABLE"
+        || state == "D3DRENDERSTATE_ALPHABLENDENABLE"
+        || state == "D3DRENDERSTATE_FOGENABLE"
+        || state == "D3DRENDERSTATE_SPECULARENABLE"
+        || state == "D3DRENDERSTATE_ZVISIBLE"
+        || state == "D3DRENDERSTATE_STIPPLEDALPHA"
+        || state == "D3DRENDERSTATE_EDGEANTIALIAS"
+        || state == "D3DRENDERSTATE_COLORKEYENABLE"
+        || state == "D3DRENDERSTATE_RANGEFOGENABLE"
+        || state == "D3DRENDERSTATE_STENCILENABLE"
+        || state == "D3DRENDERSTATE_CLIPPING"
+        || state == "D3DRENDERSTATE_LIGHTING"
+        || state == "D3DRENDERSTATE_EXTENTS"
+        || state == "D3DRENDERSTATE_COLORVERTEX"
+        || state == "D3DRENDERSTATE_LOCALVIEWER"
+        || state == "D3DRENDERSTATE_NORMALIZENORMALS"
+        || state == "D3DRENDERSTATE_COLORKEYBLENDENABLE"
+        || state == "D3DRENDERSTATE_CLIPPLANEENABLE"
+        || state == "D3DRENDERSTATE_WRAPU"
+        || state == "D3DRENDERSTATE_WRAPV"
+        || state == "D3DRENDERSTATE_MONOENABLE"
+        || state == "D3DRENDERSTATE_SUBPIXEL"
+        || state == "D3DRENDERSTATE_SUBPIXELX"
+        || state == "D3DRENDERSTATE_STIPPLEENABLE"
+        || state == "D3DRENDERSTATE_OLDALPHABLENDENABLE"
+        || state == "D3DRENDERSTATE_ANISOTROPY"
+        || state == "D3DRENDERSTATE_FLUSHBATCH"
+        || state == "D3DRENDERSTATE_TRANSLUCENTSORTINDEPENDENT") {
+        writer.writeBoolMember(state.c_str(), value);
+    } else if (state == "D3DRENDERSTATE_ALPHAREF"
+        || state == "D3DRENDERSTATE_STENCILREF"
+        || state == "D3DRENDERSTATE_STENCILMASK"
+        || state == "D3DRENDERSTATE_STENCILWRITEMASK"
+        || state == "D3DRENDERSTATE_TEXTUREHANDLE"
+        || state == "D3DRENDERSTATE_PLANEMASK"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN00"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN01"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN02"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN03"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN04"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN05"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN06"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN07"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN08"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN09"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN10"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN11"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN12"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN13"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN14"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN15"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN16"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN17"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN18"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN19"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN20"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN21"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN22"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN23"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN24"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN25"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN26"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN27"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN28"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN29"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN30"
+        || state == "D3DRENDERSTATE_STIPPLEPATTERN31") {
+        writer.writeIntMember(state.c_str(), value);
+    } else if (state == "D3DRENDERSTATE_FOGSTART"
+        || state == "D3DRENDERSTATE_FOGEND"
+        || state == "D3DRENDERSTATE_FOGDENSITY"
+        || state == "D3DRENDERSTATE_MIPMAPLODBIAS"
+        || state == "D3DRENDERSTATE_ZBIAS") {
+        writer.writeFloatMember(state.c_str(), static_cast<float>(value));
+    } else if (state == "D3DRENDERSTATE_WRAP0"
+        || state == "D3DRENDERSTATE_WRAP1"
+        || state == "D3DRENDERSTATE_WRAP2"
+        || state == "D3DRENDERSTATE_WRAP3"
+        || state == "D3DRENDERSTATE_WRAP4"
+        || state == "D3DRENDERSTATE_WRAP5"
+        || state == "D3DRENDERSTATE_WRAP6"
+        || state == "D3DRENDERSTATE_WRAP7") {
+        std::string buf{};
+        if (value & D3DWRAPCOORD_0) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DWRAPCOORD_0");
+        }
+        if (value & D3DWRAPCOORD_1) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DWRAPCOORD_1");
+        }
+        if (value & D3DWRAPCOORD_2) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DWRAPCOORD_2");
+        }
+        if (value & D3DWRAPCOORD_3) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DWRAPCOORD_3");
+        }
+        if (buf.length() > 0) {
+            writer.writeStringMember(state.c_str(), buf.c_str());
+        } else {
+            writer.writeIntMember(state.c_str(), value);
+        }
+    } else if (state == "D3DRENDERSTATE_SRCBLEND"
+        || state == "D3DRENDERSTATE_DESTBLEND"
+        || state == "D3DRENDERSTATE_VERTEXBLEND"
+        || state == "D3DRENDERSTATE_TEXTUREMAPBLEND") {
+        switch (value) {
+            case(D3DBLEND_ZERO):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_ZERO");
+                break;
+            case(D3DBLEND_ONE):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_ONE");
+                break;
+            case(D3DBLEND_SRCCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_SRCCOLOR");
+                break;
+            case(D3DBLEND_INVSRCCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_INVSRCCOLOR");
+                break;
+            case(D3DBLEND_SRCALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_SRCALPHA");
+                break;
+            case(D3DBLEND_INVSRCALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_INVSRCALPHA");
+                break;
+            case(D3DBLEND_DESTALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_DESTALPHA");
+                break;
+            case(D3DBLEND_INVDESTALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_INVDESTALPHA");
+                break;
+            case(D3DBLEND_DESTCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_DESTCOLOR");
+                break;
+            case(D3DBLEND_INVDESTCOLOR):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_INVDESTCOLOR");
+                break;
+            case(D3DBLEND_SRCALPHASAT):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_SRCALPHASAT");
+                break;
+            case(D3DBLEND_BOTHSRCALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_BOTHSRCALPHA");
+                break;
+            case(D3DBLEND_BOTHINVSRCALPHA):
+                writer.writeStringMember(state.c_str(), "D3DBLEND_BOTHINVSRCALPHA");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_STENCILFAIL"
+        || state == "D3DRENDERSTATE_STENCILZFAIL"
+        || state == "D3DRENDERSTATE_STENCILPASS") {
+        switch (value) {
+            case(D3DSTENCILOP_KEEP):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_KEEP");
+                break;
+            case(D3DSTENCILOP_ZERO):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_ZERO");
+                break;
+            case(D3DSTENCILOP_REPLACE):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_REPLACE");
+                break;
+            case(D3DSTENCILOP_INCRSAT):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_INCRSAT");
+                break;
+            case(D3DSTENCILOP_DECRSAT):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_DECRSAT");
+                break;
+            case(D3DSTENCILOP_INVERT):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_INVERT");
+                break;
+            case(D3DSTENCILOP_INCR):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_INCR");
+                break;
+            case(D3DSTENCILOP_DECR):
+                writer.writeStringMember(state.c_str(), "D3DSTENCILOP_DECR");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_ZFUNC"
+        || state == "D3DRENDERSTATE_ALPHAFUNC"
+        || state == "D3DRENDERSTATE_STENCILFUNC") {
+        switch (value) {
+            case(D3DCMP_NEVER):
+                writer.writeStringMember(state.c_str(), "D3DCMP_NEVER");
+                break;
+            case(D3DCMP_LESS):
+                writer.writeStringMember(state.c_str(), "D3DCMP_LESS");
+                break;
+            case(D3DCMP_EQUAL):
+                writer.writeStringMember(state.c_str(), "D3DCMP_EQUAL");
+                break;
+            case(D3DCMP_LESSEQUAL):
+                writer.writeStringMember(state.c_str(), "D3DCMP_LESSEQUAL");
+                break;
+            case(D3DCMP_GREATER):
+                writer.writeStringMember(state.c_str(), "D3DCMP_GREATER");
+                break;
+            case(D3DCMP_NOTEQUAL):
+                writer.writeStringMember(state.c_str(), "D3DCMP_NOTEQUAL");
+                break;
+            case(D3DCMP_GREATEREQUAL):
+                writer.writeStringMember(state.c_str(), "D3DCMP_GREATEREQUAL");
+                break;
+            case(D3DCMP_ALWAYS):
+                writer.writeStringMember(state.c_str(), "D3DCMP_ALWAYS");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_FILLMODE") {
+        switch (value) {
+            case(D3DFILL_POINT):
+                writer.writeStringMember(state.c_str(), "D3DFILL_POINT");
+                break;
+            case(D3DFILL_WIREFRAME):
+                writer.writeStringMember(state.c_str(), "D3DFILL_WIREFRAME");
+                break;
+            case(D3DFILL_SOLID):
+                writer.writeStringMember(state.c_str(), "D3DFILL_SOLID");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_FILLMODE") {
+        switch (value) {
+            case(D3DFILL_POINT):
+                writer.writeStringMember(state.c_str(), "D3DFILL_POINT");
+                break;
+            case(D3DFILL_WIREFRAME):
+                writer.writeStringMember(state.c_str(), "D3DFILL_WIREFRAME");
+                break;
+            case(D3DFILL_SOLID):
+                writer.writeStringMember(state.c_str(), "D3DFILL_SOLID");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_SHADEMODE") {
+        switch (value) {
+            case(D3DSHADE_FLAT):
+                writer.writeStringMember(state.c_str(), "D3DSHADE_FLAT");
+                break;
+            case(D3DSHADE_GOURAUD):
+                writer.writeStringMember(state.c_str(), "D3DSHADE_GOURAUD");
+                break;
+            case(D3DSHADE_PHONG):
+                writer.writeStringMember(state.c_str(), "D3DSHADE_PHONG");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_CULLMODE") {
+        switch (value) {
+            case(D3DCULL_NONE):
+                writer.writeStringMember(state.c_str(), "D3DCULL_NONE");
+                break;
+            case(D3DCULL_CW):
+                writer.writeStringMember(state.c_str(), "D3DCULL_CW");
+                break;
+            case(D3DCULL_CCW):
+                writer.writeStringMember(state.c_str(), "D3DCULL_CCW");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_LINEPATTERN") {
+        D3DLINEPATTERN *val = (D3DLINEPATTERN*)&value;
+//        std::string buf{std::string("wRepeatFactor = ").append(std::to_string(val->wRepeatFactor)).append(", wLinePattern = ").append(std::to_string(val->wLinePattern))};
+        std::ostringstream buf{};
+        buf << "wRepeatFactor = " << val->wRepeatFactor << ", wLinePattern = " << val->wLinePattern;
+        writer.writeStringMember(state.c_str(), buf.str().c_str());
+    } else if (state == "D3DRENDERSTATE_FOGCOLOR"
+        || state == "D3DRENDERSTATE_TEXTUREFACTOR"
+        || state == "D3DRENDERSTATE_AMBIENT"
+        || state == "D3DRENDERSTATE_BORDERCOLOR") {
+        writer.writeIntMember(state.c_str(), value);
+
+    } else if (state == "D3DRENDERSTATE_FOGTABLEMODE"
+        || state == "D3DRENDERSTATE_FOGVERTEXMODE") {
+        switch (value) {
+            case(D3DFOG_NONE):
+                writer.writeStringMember(state.c_str(), "D3DFOG_NONE");
+                break;
+            case(D3DFOG_EXP):
+                writer.writeStringMember(state.c_str(), "D3DFOG_EXP");
+                break;
+            case(D3DFOG_EXP2):
+                writer.writeStringMember(state.c_str(), "D3DFOG_EXP2");
+                break;
+            case(D3DFOG_LINEAR):
+                writer.writeStringMember(state.c_str(), "D3DFOG_LINEAR");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_DIFFUSEMATERIALSOURCE"
+        || state == "D3DRENDERSTATE_SPECULARMATERIALSOURCE"
+        || state == "D3DRENDERSTATE_AMBIENTMATERIALSOURCE"
+        || state == "D3DRENDERSTATE_EMISSIVEMATERIALSOURCE") {
+        switch (value) {
+            case(D3DMCS_MATERIAL):
+                writer.writeStringMember(state.c_str(), "D3DMCS_MATERIAL");
+                break;
+            case(D3DMCS_COLOR1):
+                writer.writeStringMember(state.c_str(), "D3DMCS_COLOR1");
+                break;
+            case(D3DMCS_COLOR2):
+                writer.writeStringMember(state.c_str(), "D3DMCS_COLOR2");
+                break;
+            case(D3DMCS_FORCE_DWORD):
+                writer.writeStringMember(state.c_str(), "D3DMCS_FORCE_DWORD");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_TEXTUREADDRESS"
+        || state == "D3DRENDERSTATE_TEXTUREADDRESSU"
+        || state == "D3DRENDERSTATE_TEXTUREADDRESSV") {
+        switch (value) {
+            case(D3DTADDRESS_WRAP):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_WRAP");
+                break;
+            case(D3DTADDRESS_MIRROR):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_MIRROR");
+                break;
+            case(D3DTADDRESS_CLAMP):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_CLAMP");
+                break;
+            case(D3DTADDRESS_BORDER):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_BORDER");
+                break;
+            case(D3DTADDRESS_FORCE_DWORD):
+                writer.writeStringMember(state.c_str(), "D3DTADDRESS_FORCE_DWORD");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_TEXTUREMAG"
+        || state == "D3DRENDERSTATE_TEXTUREMIN") {
+        switch (value) {
+            case(D3DFILTER_NEAREST):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_NEAREST");
+                break;
+            case(D3DFILTER_LINEAR):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_LINEAR");
+                break;
+            case(D3DFILTER_MIPNEAREST):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_MIPNEAREST");
+                break;
+            case(D3DFILTER_MIPLINEAR):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_MIPLINEAR");
+                break;
+            case(D3DFILTER_LINEARMIPNEAREST):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_LINEARMIPNEAREST");
+                break;
+            case(D3DFILTER_LINEARMIPLINEAR):
+                writer.writeStringMember(state.c_str(), "D3DFILTER_LINEARMIPLINEAR");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+    } else if (state == "D3DRENDERSTATE_ROP2") {
+        switch (value) {
+            case(R2_BLACK):
+                writer.writeStringMember(state.c_str(), "R2_BLACK");
+                break;
+            case(R2_NOTMERGEPEN):
+                writer.writeStringMember(state.c_str(), "R2_NOTMERGEPEN");
+                break;
+            case(R2_MASKNOTPEN):
+                writer.writeStringMember(state.c_str(), "R2_MASKNOTPEN");
+                break;
+            case(R2_NOTCOPYPEN):
+                writer.writeStringMember(state.c_str(), "R2_NOTCOPYPEN");
+                break;
+            case(R2_MASKPENNOT):
+                writer.writeStringMember(state.c_str(), "R2_MASKPENNOT");
+                break;
+            case(R2_NOT):
+                writer.writeStringMember(state.c_str(), "R2_NOT");
+                break;
+            case(R2_XORPEN):
+                writer.writeStringMember(state.c_str(), "R2_XORPEN");
+                break;
+            case(R2_NOTMASKPEN):
+                writer.writeStringMember(state.c_str(), "R2_NOTMASKPEN");
+                break;
+            case(R2_MASKPEN):
+                writer.writeStringMember(state.c_str(), "R2_MASKPEN");
+                break;
+            case(R2_NOTXORPEN):
+                writer.writeStringMember(state.c_str(), "R2_NOTXORPEN");
+                break;
+            case(R2_NOP):
+                writer.writeStringMember(state.c_str(), "R2_NOP");
+                break;
+            case(R2_MERGENOTPEN):
+                writer.writeStringMember(state.c_str(), "R2_MERGENOTPEN");
+                break;
+            case(R2_COPYPEN):
+                writer.writeStringMember(state.c_str(), "R2_COPYPEN");
+                break;
+            case(R2_MERGEPENNOT):
+                writer.writeStringMember(state.c_str(), "R2_MERGEPENNOT");
+                break;
+            case(R2_MERGEPEN):
+                writer.writeStringMember(state.c_str(), "R2_MERGEPEN");
+                break;
+            case(R2_WHITE):
+                writer.writeStringMember(state.c_str(), "R2_WHITE");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
+
+    } else {
+        writer.writeStringMember(state.c_str(), "NOT IMPLEMENTED");
+    }
 }
 
 } /* namespace d3dstate */

@@ -175,7 +175,10 @@ class DDrawTracer(DllTracer):
             self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
             print('    }')
 
-        if method.name == 'Lock':
+        if interface.name == "IDirect3DExecuteBuffer" and method.name == 'Lock':
+            print('    _result = _this->Lock(%s);' % ', '.join(method.argNames()))
+            resultOverride = "_result"
+        elif method.name == 'Lock':
             # Reset _DONOTWAIT flags. Otherwise they may fail, and we have no
             # way to cope with it (other than retry).
             mapFlagsArg = method.getArgByName('dwFlags')

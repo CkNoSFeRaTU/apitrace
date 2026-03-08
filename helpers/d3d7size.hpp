@@ -277,6 +277,10 @@ static inline void
 _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
              void * & pLockedData, size_t & MappedSize) {
     MappedSize = 0;
+    if (!pDesc) {
+        return;
+    }
+
     pLockedData = pLockedData = pDesc->lpSurface;
 
     UINT Width;
@@ -323,7 +327,14 @@ _getMapInfo(B* pBuffer, void** ppbData, DWORD* lpdwSize,
 static inline void
 _getMapInfo(IDirect3DExecuteBuffer* pBuffer, D3DEXECUTEBUFFERDESC* pDesc,
     void*& pLockedData, size_t& MappedSize) {
+    MappedSize = 0;
+
+    if (!pDesc || !pDesc->lpData) {
+        return;
+    }
 
     pLockedData = pDesc->lpData;
-    MappedSize = pDesc->dwBufferSize;
+    if (pDesc->dwFlags & D3DDEB_BUFSIZE) {
+      MappedSize = pDesc->dwBufferSize;
+    }
 }

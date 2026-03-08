@@ -381,7 +381,7 @@ D3DEXECUTEBUFFERDESC = Struct("D3DEXECUTEBUFFERDESC", [
     (D3DDEB, "dwFlags"),
     (D3DDEBCAPS, "dwCaps"),
     (DWORD, "dwBufferSize"),
-    (LPVOID, "lpData"),
+    (LinearPointer(Void, "_MappedSize"), "lpData"),
 ])
 LPD3DEXECUTEBUFFERDESC = Pointer(D3DEXECUTEBUFFERDESC)
 

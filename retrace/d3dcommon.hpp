@@ -136,11 +136,29 @@ extern Surface lastSetSurface;
 void
 setSurface(Surface pSurface);
 
+void
+setStateBlockMap(DWORD hOriginal, DWORD hStateBlock);
+DWORD
+getStateBlockHandle(DWORD hOriginal);
+
+void
+setMaterialMap(DWORD hOriginal, DWORD hMaterial);
+DWORD
+getMaterialHandle(DWORD hOriginal);
+
 using Texture = std::variant<IDirect3DTexture*, IDirect3DTexture2*, std::monostate>;
 extern Texture lastSetTexture;
 void
-setTextureMap(DWORD hTexture, Texture pTexture);
+setTextureMap(DWORD hOriginal, DWORD hTexture, Texture pTexture);
+DWORD
+getTextureHandle(DWORD hOriginal);
 void
-setTexture(DWORD hTexture);
+setTexture(DWORD hOriginal);
+
+void
+writeTextureRenderState(StateWriter &writer, std::string state, DWORD value);
+
+void
+writeRenderState(StateWriter &writer, std::string state, DWORD value);
 
 } /* namespace d3dstate */

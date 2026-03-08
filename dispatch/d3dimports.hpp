@@ -116,13 +116,27 @@
 #define D3DRENDERSTATE_OLDALPHABLENDENABLE (D3DRENDERSTATETYPE)42
 #endif
 
+// general fourcc formats
 #define D3DFMT_DXT1 MAKEFOURCC('D','X','T','1')
 #define D3DFMT_DXT2 MAKEFOURCC('D','X','T','2')
 #define D3DFMT_DXT3 MAKEFOURCC('D','X','T','3')
 #define D3DFMT_DXT4 MAKEFOURCC('D','X','T','4')
 #define D3DFMT_DXT5 MAKEFOURCC('D','X','T','5')
 #define D3DFMT_IV50 MAKEFOURCC('I','V','5','0')
+#define D3DFMT_UV12 MAKEFOURCC('U','V','1','2')
+#define D3DFMT_UYVY MAKEFOURCC('U','Y','V','Y')
 #define D3DFMT_YUY2 MAKEFOURCC('Y','U','Y','2')
+
+// vendor fourcc hacks
+#define D3DFMT_ATI1N MAKEFOURCC('A','T','I','1')
+#define D3DFMT_ATI2N MAKEFOURCC('A','T','I','2')
+#define D3DFMT_ATOC MAKEFOURCC('A','T','O','C')
+#define D3DFMT_INST MAKEFOURCC('I','N','S','T')
+#define D3DFMT_INTZ MAKEFOURCC('I','N','T','Z')
+#define D3DFMT_NVDB MAKEFOURCC('N','V','D','B')
+#define D3DFMT_NVHS MAKEFOURCC('N','V','H','S')
+#define D3DFMT_NVHU MAKEFOURCC('N','V','H','U')
+#define D3DFMT_RESZ MAKEFOURCC('R','E','S','Z')
 
 #undef DDPCAPS_INITIALIZE
 #define DDPCAPS_INITIALIZE 0x08

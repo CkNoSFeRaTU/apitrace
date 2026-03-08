@@ -189,6 +189,25 @@ class D3DRetracer(Retracer):
             print(r'    lpContext = &context;')
             print(r'    lpEnumSurfacesCallback = &EnumAttachedSurfacesCB;')
 
+        if interface.name == 'IDirect3DDevice7' and method.name in ('ApplyStateBlock', 'CaptureStateBlock', 'DeleteStateBlock'):
+            print(r'    %s = d3dstate::getStateBlockHandle(%s);' % (method.getArgByName('dwBlockHandle').name, method.getArgByName('dwBlockHandle').name))
+
+        if interface.name.startswith('IDirect3DDevice') and method.name == 'SetLightState':
+            print(r'    if (%s == D3DLIGHTSTATE_MATERIAL) {' % method.getArgByName('dwLightStateType').name)
+            print(r'        %s = d3dstate::getMaterialHandle(%s);' % (method.getArgByName('dwLightState').name, method.getArgByName('dwLightState').name))
+            print(r'    }')
+
+        if interface.name.startswith('IDirect3DDevice') and method.name == 'SetRenderState':
+            print(r'    if (%s == D3DRENDERSTATE_TEXTUREHANDLE) {' % method.getArgByName('dwRenderStateType').name)
+            print(r'        %s = d3dstate::getTextureHandle(%s);' % (method.getArgByName('dwRenderState').name, method.getArgByName('dwRenderState').name))
+            print(r'    }')
+
+        if interface.name.startswith('IDirect3DMaterial') and method.name == 'SetMaterial':
+            print(r'    %s->hTexture = d3dstate::getTextureHandle(%s->hTexture);' % (method.getArgByName('lpMat').name, method.getArgByName('lpMat').name))
+
+        if interface.name.startswith('IDirect3DViewport') and method.name == 'SetBackground':
+            print(r'    %s = d3dstate::getMaterialHandle(%s);' % (method.getArgByName('hMat').name, method.getArgByName('hMat').name))
+
         Retracer.invokeInterfaceMethod(self, interface, method)
 
         if interface.name == 'IDirect3D2' and method.name == 'CreateDevice':
@@ -226,7 +245,7 @@ class D3DRetracer(Retracer):
             print(r'        }')
             print(r'    }')
 
-        if method.name in ('Lock'):
+        if method.name == 'Lock' and interface.name != "IDirect3DExecuteBuffer":
             print('    VOID *_pbData = nullptr;')
             print('    size_t _MappedSize = 0;')
 
@@ -247,6 +266,20 @@ class D3DRetracer(Retracer):
             print('    } else {')
             print('        return;')
             print('    }')
+        elif interface.name == 'IDirect3DExecuteBuffer' and method.name in ('Initialize', 'Lock'):
+            print('    VOID *_pbData = nullptr;')
+            print('    size_t _MappedSize = 0;')
+            if method.name == 'Lock':
+                print('    _getMapInfo(_this, %s, _pbData, _MappedSize);' % ', '.join(method.argNames()))
+                print('    if (_MappedSize) {')
+                print('        _maps[_this] = _pbData;')
+                self.checkPitchMismatch(method);
+                print('    } else {')
+                print('        return;')
+                print('    }')
+                print('    const trace::Array *_a_desc = (call.arg(1)).toArray();')
+                print('    const trace::Struct *_s_desc = (*_a_desc->values[0]).toStruct();')
+                print('    retrace::addRegion(call, (*_s_desc->members[4]).toUIntPtr(), (lpDesc)->lpData, _MappedSize);')
 
         if method.name in ('Unlock'):
             print('    VOID *_pbData = 0;')
@@ -262,12 +295,37 @@ class D3DRetracer(Retracer):
             print('        d3dretrace::setHDC((*_ar->values[0]).toUInt(), phDC[0]);')
             print('    }')
 
-        if interface.name.startswith('IDirect3DTexture') and method.name == 'GetHandle':
-            print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpHandle').name)
-            print(r'        d3dstate::setTextureMap(*%s, _this);' % method.getArgByName('lpHandle').name)
+        if interface.name == 'IDirect3DDevice7' and method.name in ('CreateStateBlock', 'EndStateBlock'):
+            print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpdwBlockHandle').name)
+            if method.name == 'CreateStateBlock':
+                print(r'        const trace::Array *_ar = (call.arg(2)).toArray();')
+            elif method.name == 'EndStateBlock':
+                print(r'        const trace::Array *_ar = (call.arg(1)).toArray();')
+            print(r'        if (_ar) {')
+            print(r'            DWORD hOriginal = static_cast<DWORD>((*_ar->values[0]).toUInt());')
+            print(r'            d3dstate::setStateBlockMap(hOriginal, *%s);' % method.getArgByName('lpdwBlockHandle').name)
+            print(r'        }')
             print(r'    }')
 
-        if interface.name == 'IDirect3DDevice2' and method.name == 'SetRenderState':
+        if interface.name.startswith('IDirect3DMaterial') and method.name == 'GetHandle':
+            print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpHandle').name)
+            print(r'        const trace::Array *_ar = (call.arg(2)).toArray();')
+            print(r'        if (_ar) {')
+            print(r'            DWORD hOriginal = static_cast<DWORD>((*_ar->values[0]).toUInt());')
+            print(r'            d3dstate::setMaterialMap(hOriginal, *%s);' % method.getArgByName('lpHandle').name)
+            print(r'        }')
+            print(r'    }')
+
+        if interface.name.startswith('IDirect3DTexture') and method.name == 'GetHandle':
+            print(r'    if (SUCCEEDED(_result) && %s) {' % method.getArgByName('lpHandle').name)
+            print(r'        const trace::Array *_ar = (call.arg(2)).toArray();')
+            print(r'        if (_ar) {')
+            print(r'            DWORD hOriginal = static_cast<DWORD>((*_ar->values[0]).toUInt());')
+            print(r'            d3dstate::setTextureMap(hOriginal, *%s, _this);' % method.getArgByName('lpHandle').name)
+            print(r'        }')
+            print(r'    }')
+
+        if interface.name.startswith('IDirect3DDevice') and method.name == 'SetRenderState':
             print(r'    if (SUCCEEDED(_result) && %s == D3DRENDERSTATE_TEXTUREHANDLE) {' % method.getArgByName('dwRenderStateType').name)
             print(r'        d3dstate::setTexture(%s);' % method.getArgByName('dwRenderState').name)
             print(r'    }')
@@ -283,7 +341,12 @@ class D3DRetracer(Retracer):
         # Handle DDCREATE_* flags
         if arg.type is DDCREATE_LPGUID:
             print('    if (%s.toArray()) {' % rvalue)
-            Retracer.extractArg(self, function, arg, arg_type, lvalue, rvalue)
+            # We need to clear lpGUID as it can be GUID of GPU adapter and so trace from another machine/os could fail
+            if arg.name == 'lpGUID' and function.name in ('DirectDrawCreate', 'DirectDrawCreateEx'):
+                print('    %s = nullptr;' % lvalue)
+#                print('    %s = static_cast<%s>(0);' % (lvalue, arg_type))
+            else:
+                Retracer.extractArg(self, function, arg, arg_type, lvalue, rvalue)
             print('    } else {')
             print('        %s = static_cast<%s>(%s.toPointer());' % (lvalue, arg_type, rvalue))
             print('    }')

@@ -146,8 +146,8 @@ IDirect3DMaterial3 = Interface("IDirect3DMaterial3", IUnknown)
 IDirect3DTexture = Interface("IDirect3DTexture", IUnknown)
 IDirect3DTexture2 = Interface("IDirect3DTexture2", IUnknown)
 IDirect3DViewport = Interface("IDirect3DViewport", IUnknown)
-IDirect3DViewport2 = Interface("IDirect3DViewport2", IDirect3DViewport)
-IDirect3DViewport3 = Interface("IDirect3DViewport3", IDirect3DViewport2)
+IDirect3DViewport2 = Interface("IDirect3DViewport2", IUnknown)
+IDirect3DViewport3 = Interface("IDirect3DViewport3", IUnknown)
 IDirect3DVertexBuffer = Interface("IDirect3DVertexBuffer", IUnknown)
 IDirect3DVertexBuffer7 = Interface("IDirect3DVertexBuffer7", IUnknown)
 
@@ -176,8 +176,6 @@ LPDIRECT3DVERTEXBUFFER = ObjPointer(IDirect3DVertexBuffer)
 LPDIRECT3D7 = ObjPointer(IDirect3D7)
 LPDIRECT3DDEVICE7 = ObjPointer(IDirect3DDevice7)
 LPDIRECT3DVERTEXBUFFER7 = ObjPointer(IDirect3DVertexBuffer7)
-
-LPD3DEXECUTEBUFFERDESC = ObjPointer(D3DEXECUTEBUFFERDESC)
 
 IDirect3D.methods += [
     StdMethod(HRESULT, "Initialize", [(REFCLSID, "riid")]),
@@ -364,7 +362,7 @@ IDirect3DDevice7.methods += [
 ]
 
 IDirect3DExecuteBuffer.methods += [
-    StdMethod(HRESULT, "Initialize", [(LPDIRECT3DDEVICE, "lpDirect3DDevice"), (LPD3DEXECUTEBUFFERDESC, "lpDesc")]),
+    StdMethod(HRESULT, "Initialize", [(LPDIRECT3DDEVICE, "lpDirect3DDevice"), InOut(LPD3DEXECUTEBUFFERDESC, "lpDesc")]),
     StdMethod(HRESULT, "Lock", [(LPD3DEXECUTEBUFFERDESC, "lpDesc")]),
     StdMethod(HRESULT, "Unlock", []),
     StdMethod(HRESULT, "SetExecuteData", [(LPD3DEXECUTEDATA, "lpData")]),
@@ -431,11 +429,39 @@ IDirect3DViewport.methods += [
 ]
 
 IDirect3DViewport2.methods += [
+    StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
+    StdMethod(HRESULT, "GetViewport", [Out(LPD3DVIEWPORT, "lpData")], sideeffects=False),
+    StdMethod(HRESULT, "SetViewport", [(LPD3DVIEWPORT, "lpData")]),
+    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (DWORD, "dwFlags"), (LPDWORD, "lpOffScreen")]),
+    StdMethod(HRESULT, "LightElements", [(DWORD, "dwElementCount"), (LPD3DLIGHTDATA, "lpData")]),
+    StdMethod(HRESULT, "SetBackground", [(D3DMATERIALHANDLE, "hMat")]),
+    StdMethod(HRESULT, "GetBackground", [Out(LPD3DMATERIALHANDLE, "lphMat"), Out(LPBOOL, "lpValid")], sideeffects=False),
+    StdMethod(HRESULT, "SetBackgroundDepth", [(LPDIRECTDRAWSURFACE, "lpDDSurface")]),
+    StdMethod(HRESULT, "GetBackgroundDepth", [Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDDSurface"), Out(LPBOOL, "lpValid")]),
+    StdMethod(HRESULT, "Clear", [(DWORD, "dwCount"), (Array(D3DRECT, "dwCount"), "lpRects"), (D3DCLEAR, "dwFlags")]),
+    StdMethod(HRESULT, "AddLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight")]),
+    StdMethod(HRESULT, "DeleteLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight")]),
+    StdMethod(HRESULT, "NextLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight"), Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (DWORD, "dwFlags")]),
     StdMethod(HRESULT, "GetViewport2", [Out(LPD3DVIEWPORT2, "lpData")], sideeffects=False),
     StdMethod(HRESULT, "SetViewport2", [(LPD3DVIEWPORT2, "lpData")]),
 ]
 
 IDirect3DViewport3.methods += [
+    StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
+    StdMethod(HRESULT, "GetViewport", [Out(LPD3DVIEWPORT, "lpData")], sideeffects=False),
+    StdMethod(HRESULT, "SetViewport", [(LPD3DVIEWPORT, "lpData")]),
+    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (DWORD, "dwFlags"), (LPDWORD, "lpOffScreen")]),
+    StdMethod(HRESULT, "LightElements", [(DWORD, "dwElementCount"), (LPD3DLIGHTDATA, "lpData")]),
+    StdMethod(HRESULT, "SetBackground", [(D3DMATERIALHANDLE, "hMat")]),
+    StdMethod(HRESULT, "GetBackground", [Out(LPD3DMATERIALHANDLE, "lphMat"), Out(LPBOOL, "lpValid")], sideeffects=False),
+    StdMethod(HRESULT, "SetBackgroundDepth", [(LPDIRECTDRAWSURFACE, "lpDDSurface")]),
+    StdMethod(HRESULT, "GetBackgroundDepth", [Out(Pointer(LPDIRECTDRAWSURFACE), "lplpDDSurface"), Out(LPBOOL, "lpValid")]),
+    StdMethod(HRESULT, "Clear", [(DWORD, "dwCount"), (Array(D3DRECT, "dwCount"), "lpRects"), (D3DCLEAR, "dwFlags")]),
+    StdMethod(HRESULT, "AddLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight")]),
+    StdMethod(HRESULT, "DeleteLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight")]),
+    StdMethod(HRESULT, "NextLight", [(LPDIRECT3DLIGHT, "lpDirect3DLight"), Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (DWORD, "dwFlags")]),
+    StdMethod(HRESULT, "GetViewport2", [Out(LPD3DVIEWPORT2, "lpData")], sideeffects=False),
+    StdMethod(HRESULT, "SetViewport2", [(LPD3DVIEWPORT2, "lpData")]),
     StdMethod(HRESULT, "SetBackgroundDepth2", [(LPDIRECTDRAWSURFACE4, "lpDDS")]),
     StdMethod(HRESULT, "GetBackgroundDepth2", [Out(Pointer(LPDIRECTDRAWSURFACE4), "lplpDDS"), (LPBOOL, "lpValid")]),
     StdMethod(HRESULT, "Clear2", [(DWORD, "dwCount"), (Array(D3DRECT, "dwCount"), "lpRects"), (D3DCLEAR, "dwFlags"), (D3DCOLOR, "dwColor"), (D3DVALUE, "dvZ"), (DWORD, "dwStencil")]),

@@ -307,6 +307,17 @@ ConvertImage(D3DFORMAT SrcFormat,
         break;
     default:
 #ifdef HAVE_DXGI
+        uint16_t *data = (uint16_t*)SrcData;
+        for (unsigned y = 0; y < Height; ++y) {
+          switch (DWORD(SrcFormat)) {
+          case D3DFMT_X1R5G5B5:
+            for (unsigned x = 0; x < Width; ++x) {
+              // force alpha bit
+              data[y * Width + x] = data[y * Width + x] | 0x8000;
+            }
+            break;
+          }
+        }
         image = ConvertImageDXGI(SrcFormat, SrcData, SrcPitch, Width, Height);
         if (image) {
             image->formatName = formatToString(SrcFormat);

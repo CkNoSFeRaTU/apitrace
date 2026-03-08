@@ -786,13 +786,24 @@ DirectDrawPixelFormatFlags = Flags(DWORD, [
     "DDPF_D3DFORMAT",
 ])
 
-DirectDrawPixelFormatFourCC = Flags(DWORD, [
+DirectDrawPixelFormatFourCC = FakeEnum(DWORD, [
+    "D3DFMT_ATI1N",
+    "D3DFMT_ATI2N",
+    "D3DFMT_ATOC",
     "D3DFMT_DXT1",
     "D3DFMT_DXT2",
     "D3DFMT_DXT3",
     "D3DFMT_DXT4",
     "D3DFMT_DXT5",
+    "D3DFMT_INST",
+    "D3DFMT_INTZ",
     "D3DFMT_IV50",
+    "D3DFMT_NVHS",
+    "D3DFMT_NVHU",
+    "D3DFMT_NVDB",
+    "D3DFMT_RESZ",
+    "D3DFMT_UV12",
+    "D3DFMT_UYVY",
     "D3DFMT_YUY2",
 ])
 
@@ -995,7 +1006,11 @@ DDSURFACEDESC = Struct("DDSURFACEDESC", [
     (DDCOLORKEY, "ddckCKDestBlt"),
     (DDCOLORKEY, "ddckCKSrcOverlay"),
     (DDCOLORKEY, "ddckCKSrcBlt"),
-    (DDPIXELFORMAT, "ddpfPixelFormat"),
+#    (DDPIXELFORMAT, "ddpfPixelFormat"),
+    (Union("({self}.dwFlags & (DDSD_PIXELFORMAT))", [
+        ("0", None, None),
+        ("DDSD_PIXELFORMAT", DDPIXELFORMAT, "ddpfPixelFormat"),
+    ]), None),
     (DDSCAPS, "ddsCaps"),
 ])
 LPDDSURFACEDESC = Pointer(DDSURFACEDESC)
