@@ -221,7 +221,7 @@ IDirect3DDevice.methods += [
     StdMethod(HRESULT, "SwapTextureHandles", [(LPDIRECT3DTEXTURE, "lpD3Dtex1"), (LPDIRECT3DTEXTURE, "lpD3DTex2")]),
     StdMethod(HRESULT, "CreateExecuteBuffer", [(LPD3DEXECUTEBUFFERDESC, "lpDesc"), Out(Pointer(LPDIRECT3DEXECUTEBUFFER), "lplpDirect3DExecuteBuffer"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "GetStats", [(LPD3DSTATS, "lpD3DStats")], sideeffects=False),
-    StdMethod(HRESULT, "Execute", [(LPDIRECT3DEXECUTEBUFFER, "lpDirect3DExecuteBuffer"), (LPDIRECT3DVIEWPORT, "lpDirect3DViewport"), (DWORD, "dwFlags")]),
+    StdMethod(HRESULT, "Execute", [(LPDIRECT3DEXECUTEBUFFER, "lpDirect3DExecuteBuffer"), (LPDIRECT3DVIEWPORT, "lpDirect3DViewport"), (D3DEXECUTE, "dwFlags")]),
     StdMethod(HRESULT, "AddViewport", [(LPDIRECT3DVIEWPORT, "lpDirect3DViewport")]),
     StdMethod(HRESULT, "DeleteViewport", [(LPDIRECT3DVIEWPORT, "lpDirect3DViewport")]),
     StdMethod(HRESULT, "NextViewport", [(LPDIRECT3DVIEWPORT, "lpDirect3DViewport"), Out(Pointer(LPDIRECT3DVIEWPORT), "lplpDirect3DViewport"), (DWORD, "dwFlags")]),

@@ -79,6 +79,8 @@ class ComplexValueSerializer(stdapi.OnceVisitor):
                 else:
                     print('    "%s",' % (name,))
             print('};')
+        elif struct.name == None:
+            memberNames = 'nullptr'
         else:
             sys.stderr.write('warning: %s has no members\n' % struct.name)
             memberNames = 'nullptr'
@@ -982,7 +984,10 @@ class Tracer:
         print(r'        return;')
         print(r'    }')
         for iface in ifaces:
-            print(r'    if (riid == IID_%s) {' % (iface.name,))
+            if iface.name == "IDirect3DDevice":
+                print(r'    if (riid == IID_%s || riid == IID_IDirect3DHALDevice || riid == IID_IDirect3DRGBDevice || riid == IID_IDirect3DRampDevice || riid == IID_IDirect3DMMXDevice) {' % (iface.name,))
+            else:
+                print(r'    if (riid == IID_%s) {' % (iface.name,))
             print(r'        Wrap%s::_wrap(entryName, (%s **) ppvObj);' % (iface.name, iface.name))
             print(r'        return;')
             print(r'    }')

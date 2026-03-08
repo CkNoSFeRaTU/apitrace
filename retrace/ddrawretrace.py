@@ -96,7 +96,7 @@ class D3DRetracer(Retracer):
             print(r'    d3d7Dumper.bindDevice(_this);')
         elif interface.name == 'IDirectDraw' and method.name != 'Release':
             print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
-            print(r'         ddrawDumper.bindDevice(_this);')
+            print(r'        ddrawDumper.bindDevice(_this);')
             print(r'    }')
         elif interface.name == 'IDirectDraw2' and method.name != 'Release':
             print(r'    if (!d3d3Dumper.pLastDevice && !d3d5Dumper.pLastDevice && !d3d6Dumper.pLastDevice && !d3d7Dumper.pLastDevice) {')
