@@ -146,6 +146,11 @@ setMaterialMap(DWORD hOriginal, DWORD hMaterial);
 DWORD
 getMaterialHandle(DWORD hOriginal);
 
+void
+setMatrixMap(DWORD hOriginal, DWORD hMaterial);
+DWORD
+getMatrixHandle(DWORD hOriginal);
+
 using Texture = std::variant<IDirect3DTexture*, IDirect3DTexture2*, std::monostate>;
 extern Texture lastSetTexture;
 void

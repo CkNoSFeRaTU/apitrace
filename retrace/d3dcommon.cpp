@@ -343,6 +343,7 @@ struct textureBind {
 };
 static std::map<DWORD, DWORD> stateBlockMap;
 static std::map<DWORD, DWORD> materialMap;
+static std::map<DWORD, DWORD> matrixMap;
 static std::map<DWORD, textureBind> textureMap;
 
 DWORD
@@ -396,6 +397,33 @@ setMaterialMap(DWORD hOriginal, DWORD hMaterial) {
         materialMap[hOriginal] = hMaterial;
     } else {
         materialMap.erase(hOriginal);
+    }
+}
+
+DWORD
+getMatrixHandle(DWORD hOriginal) {
+    if (hOriginal == 0) {
+        return 0;
+    }
+
+    auto it = matrixMap.find(hOriginal);
+    if (it == matrixMap.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+void
+setMatrixMap(DWORD hOriginal, DWORD hMatrix) {
+    if (!hOriginal) {
+        return;
+    }
+
+    if (hMatrix) {
+        matrixMap[hOriginal] = hMatrix;
+    } else {
+        matrixMap.erase(hOriginal);
     }
 }
 
