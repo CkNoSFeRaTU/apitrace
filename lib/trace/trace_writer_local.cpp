@@ -291,6 +291,7 @@ void LocalWriter::flush(void) {
 LocalWriter localWriter;
 
 void fakeMalloc(const void *ptr, size_t size) {
+    assert(ptr);
     if (!size) {
         return;
     }
@@ -333,7 +334,7 @@ void fakeMemcpy(const void *ptr, size_t size) {
     size_t maxSize = 0;
     MEMORY_BASIC_INFORMATION mi;
     while (VirtualQuery((const uint8_t *)ptr + maxSize, &mi, sizeof mi) == sizeof mi &&
-           mi.Protect & (PAGE_READONLY|PAGE_READWRITE)) {
+           mi.Protect & (PAGE_READONLY|PAGE_READWRITE|PAGE_EXECUTE_READ|PAGE_EXECUTE_READWRITE)) {
         maxSize = (const uint8_t *)mi.BaseAddress + mi.RegionSize - (const uint8_t *)ptr;
     }
     if (maxSize < size) {
