@@ -66,7 +66,7 @@ getSurfaceImage(IDirect3DDevice9 *pDevice,
         return NULL;
     }
 
-    image = ConvertImage(Desc.Format, LockedRect.pBits, LockedRect.Pitch, Desc.Width, Desc.Height);
+    image = ConvertImage(Desc.Format, LockedRect.pBits, LockedRect.Pitch, Desc.Width, Desc.Height, nullptr);
 
     pSurface->UnlockRect();
 

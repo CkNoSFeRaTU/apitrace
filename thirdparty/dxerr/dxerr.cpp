@@ -80,7 +80,7 @@
 #pragma warning( disable : 6001 6221 )
 #endif
 
-#if defined(__MINGW32__) && !defined(MINGW_HAS_SECURE_API)
+#if defined(__MINGW32__) && !defined(MINGW_HAS_SECURE_API) && !defined(__llvm__)
 
 static inline errno_t
 strcpy_s(char *strDestination, size_t numberOfElements, const char *strSource)

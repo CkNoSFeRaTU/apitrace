@@ -217,14 +217,14 @@ D3DTRANSFORM = Flags(DWORD, [
 
 D3DTRANSFORMDATA = Struct("D3DTRANSFORMDATA", [
     (DWORD, "dwSize"),
-    (LPVOID, "lpIn"),
+    (Blob(VOID, "{self}.dwInSize * {parent}dwVertexCount"), "lpIn"),
     (DWORD, "dwInSize"),
-    (LPVOID, "lpOut"),
+    (Blob(VOID, "{self}.dwOutSize * {parent}dwVertexCount"), "lpOut"),
     (DWORD, "dwOutSize"),
-    (LPD3DHVERTEX, "lpHOut"),
-    (DWORD, "dwClip"),
-    (DWORD, "dwClipIntersection"),
-    (DWORD, "dwClipUnion"),
+    (Array(D3DHVERTEX, "{parent}dwVertexCount"), "lpHOut"),
+    (D3DCLIP, "dwClip"),
+    (D3DSTATUS, "dwClipIntersection"),
+    (D3DSTATUS, "dwClipUnion"),
     (D3DRECT, "drExtent"),
 ])
 LPD3DTRANSFORMDATA = Pointer(D3DTRANSFORMDATA)
@@ -264,6 +264,12 @@ D3DLIGHTTYPE = Enum("D3DLIGHTTYPE", [
     "D3DLIGHT_GLSPOT",
 ])
 
+D3DLIGHTFLAGS = Flags(DWORD, [
+    "D3DLIGHT_ACTIVE",
+    "D3DLIGHT_NO_SPECULAR",
+    "D3DLIGHT_ALL",
+])
+
 D3DLIGHT = Struct("D3DLIGHT", [
     (DWORD, "dwSize"),
     (D3DLIGHTTYPE, "dltType"),
@@ -279,6 +285,28 @@ D3DLIGHT = Struct("D3DLIGHT", [
     (D3DVALUE, "dvPhi"),
 ])
 LPD3DLIGHT = Pointer(D3DLIGHT)
+
+D3DLIGHT2 = Struct("D3DLIGHT2", [
+    (DWORD, "dwSize"),
+    (D3DLIGHTTYPE, "dltType"),
+    (D3DCOLORVALUE, "dcvColor"),
+    (D3DVECTOR, "dvPosition"),
+    (D3DVECTOR, "dvDirection"),
+    (D3DVALUE, "dvRange"),
+    (D3DVALUE, "dvFalloff"),
+    (D3DVALUE, "dvAttenuation0"),
+    (D3DVALUE, "dvAttenuation1"),
+    (D3DVALUE, "dvAttenuation2"),
+    (D3DVALUE, "dvTheta"),
+    (D3DVALUE, "dvPhi"),
+    (D3DLIGHTFLAGS, "dwFlags"),
+])
+LPD3DLIGHT2 = Pointer(D3DLIGHT2)
+
+LPD3DLIGHTP = Polymorphic("lpLight->dwSize", [
+    ("sizeof(D3DLIGHT)", LPD3DLIGHT),
+    ("sizeof(D3DLIGHT2)", LPD3DLIGHT2),
+], LPD3DLIGHT, contextLess=True)
 
 D3DLIGHT7 = Struct("D3DLIGHT7", [
     (D3DLIGHTTYPE, "dltType"),
@@ -296,29 +324,6 @@ D3DLIGHT7 = Struct("D3DLIGHT7", [
     (D3DVALUE, "dvPhi"),
 ])
 LPD3DLIGHT7 = Pointer(D3DLIGHT7)
-
-D3DLIGHTFLAGS = Flags(DWORD, [
-    "D3DLIGHT_ACTIVE",
-    "D3DLIGHT_NO_SPECULAR",
-    "D3DLIGHT_ALL",
-])
-
-D3DLIGHT2 = Struct("D3DLIGHT2", [
-    (DWORD, "dwSize"),
-    (D3DLIGHTTYPE, "dltType"),
-    (D3DCOLORVALUE, "dcvColor"),
-    (D3DVECTOR, "dvPosition"),
-    (D3DVECTOR, "dvDirection"),
-    (D3DVALUE, "dvRange"),
-    (D3DVALUE, "dvFalloff"),
-    (D3DVALUE, "dvAttenuation0"),
-    (D3DVALUE, "dvAttenuation1"),
-    (D3DVALUE, "dvAttenuation2"),
-    (D3DVALUE, "dvTheta"),
-    (D3DVALUE, "dvPhi"),
-    (DWORD, "dwFlags"),
-])
-LPD3DLIGHT2 = Pointer(D3DLIGHT2)
 
 D3DLIGHTDATA = Struct("D3DLIGHTDATA", [
     (DWORD, "dwSize"),
@@ -550,7 +555,7 @@ D3DWRAPCOORD = Flags(DWORD, [
 ])
 
 D3DRENDERSTATETYPE, D3DRENDERSTATEVALUE = EnumPolymorphic("D3DRENDERSTATETYPE", "dwRenderStateType", [
-    ("D3DRENDERSTATE_ANTIALIAS", BOOL),
+    ("D3DRENDERSTATE_ANTIALIAS", D3DANTIALIASMODE), # it is BOOL in D3D3
     ("D3DRENDERSTATE_TEXTUREPERSPECTIVE", BOOL),
     ("D3DRENDERSTATE_ZENABLE", BOOL),
     ("D3DRENDERSTATE_FILLMODE", D3DFILLMODE),

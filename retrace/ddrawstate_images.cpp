@@ -68,6 +68,7 @@ ddrawSurfaceDump(StateWriter &writer) {
         using S = std::decay_t<decltype(surf)>;
         if constexpr (!std::is_same_v<S, std::monostate>) {
             S pLevel = surf;
+            surf->AddRef();
             DWORD Level = 0;
             while (pLevel) {
                 image::Image *image = getSurfaceImage(pLevel);

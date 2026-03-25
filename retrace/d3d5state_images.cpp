@@ -57,52 +57,56 @@ void
 dumpTextures(StateWriter &writer, IDirect3DDevice2 *pDevice)
 {
     char label[128];
+    int counter = 0;
 
     writer.beginMember("textures");
     writer.beginObject();
 
-    HRESULT hr = E_INVALIDARG;
-
     IDirectDrawSurface *pLevel = nullptr;
-    std::visit([&hr, &pLevel](auto& tex) {
-        using T = std::decay_t<decltype(tex)>;
-        if constexpr (!std::is_same_v<T, std::monostate>) {
-            hr = tex->QueryInterface(IID_IDirectDrawSurface, (void **)&pLevel);
-        }
-    }, lastSetTexture);
-
-    if (SUCCEEDED(hr) && pLevel) {
-        DWORD Level = 0;
-        while (pLevel) {
-            image::Image *image = getSurfaceImage(pLevel);
-            if (image) {
-                _snprintf(label, sizeof label, "PS_RESOURCE_0_LEVEL_%lu", Level);
-
-                writer.beginMember(label);
-                StateWriter::ImageDesc imgDesc;
-                imgDesc.depth = 1;
-                imgDesc.format = image->formatName;
-                writer.writeImage(image, imgDesc);
-                writer.endMember();
-                delete image;
+    for (auto lastSetTexture : lastSetTextures) {
+        HRESULT hr = E_INVALIDARG;
+        std::visit([&hr, &pLevel](auto& texture) {
+            using T = std::decay_t<decltype(texture)>;
+            if constexpr (!std::is_same_v<T, std::monostate>) {
+                hr = texture->QueryInterface(IID_IDirectDrawSurface4, (void **)&pLevel);
             }
+        }, lastSetTexture);
 
-            // Get next mip level
-            DDSCAPS capsMips = {};
-            capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
+        if (SUCCEEDED(hr) && pLevel) {
+            DWORD Level = 0;
+            while (pLevel) {
+                image::Image *image = getSurfaceImage(pLevel);
+                if (image) {
+                    _snprintf(label, sizeof label, "PS_RESOURCE_%d_LEVEL_%lu", counter, Level);
 
-            IDirectDrawSurface *pNext = nullptr;
-            hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
+                    writer.beginMember(label);
+                    StateWriter::ImageDesc imgDesc;
+                    imgDesc.depth = 1;
+                    imgDesc.format = image->formatName;
+                    writer.writeImage(image, imgDesc);
+                    writer.endMember();
+                    delete image;
+                }
 
-            pLevel->Release();
+                // Get next mip level
+                DDSCAPS capsMips = {};
+                capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
 
-            if (FAILED(hr) || !pNext) {
-                break;
+                IDirectDrawSurface *pNext = nullptr;
+                hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
+
+                pLevel->Release();
+
+                if (FAILED(hr) || !pNext) {
+                    break;
+                }
+
+                pLevel = pNext;
+                Level++;
             }
-
-            pLevel = pNext;
-            Level++;
         }
+
+        counter++;
     }
 
     ddrawSurfaceDump(writer);

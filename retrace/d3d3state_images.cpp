@@ -39,28 +39,76 @@ namespace d3dstate {
 
 image::Image *
 getRenderTargetImage(IDirect3DDevice *pDevice) {
-    /*
-     * TODO: there are no API to retrieve render target in d3d3 and prior.
-     * There your "render target" is the surface you create d3d device from.
-     * So we have to intercept d3d device creation via QueryInterface and save surface pointer.
-     */
+    image::Image *image = nullptr;
 
-    return nullptr;
+    std::visit([&image](auto& surface) {
+        using T = std::decay_t<decltype(surface)>;
+        if constexpr (!std::is_same_v<T, std::monostate>) {
+          image = getSurfaceImage(surface);
+        }
+    }, lastSetRenderTarget);
+
+    return image;
 }
 
 
 void
 dumpTextures(StateWriter &writer, IDirect3DDevice *pDevice)
 {
+    char label[128];
+    int counter = 0;
+
     writer.beginMember("textures");
     writer.beginObject();
 
-    ddrawSurfaceDump(writer);
+    IDirectDrawSurface *pLevel = nullptr;
+    for (auto lastSetTexture : lastSetTextures) {
+        HRESULT hr = E_INVALIDARG;
+        std::visit([&hr, &pLevel](auto& texture) {
+            using T = std::decay_t<decltype(texture)>;
+            if constexpr (!std::is_same_v<T, std::monostate>) {
+                hr = texture->QueryInterface(IID_IDirectDrawSurface4, (void **)&pLevel);
+            }
+        }, lastSetTexture);
 
-    /*
-     * TODO: everything in d3d3 and prior is done via execute buffer.
-     * So if we want to dump textures we have to intercept and parse it's command stream.
-     */
+        if (SUCCEEDED(hr) && pLevel) {
+            DWORD Level = 0;
+            while (pLevel) {
+                image::Image *image = getSurfaceImage(pLevel);
+                if (image) {
+                    _snprintf(label, sizeof label, "EB_RESOURCE_%d_LEVEL_%lu", counter, Level);
+
+                    writer.beginMember(label);
+                    StateWriter::ImageDesc imgDesc;
+                    imgDesc.depth = 1;
+                    imgDesc.format = image->formatName;
+                    writer.writeImage(image, imgDesc);
+                    writer.endMember();
+                    delete image;
+                }
+
+                // Get next mip level
+                DDSCAPS capsMips = {};
+                capsMips.dwCaps  = DDSCAPS_TEXTURE | DDSCAPS_MIPMAP;
+
+                IDirectDrawSurface *pNext = nullptr;
+                hr = pLevel->GetAttachedSurface(&capsMips, &pNext);
+
+                pLevel->Release();
+
+                if (FAILED(hr) || !pNext) {
+                    break;
+                }
+
+                pLevel = pNext;
+                Level++;
+            }
+        }
+
+        counter++;
+    }
+
+    ddrawSurfaceDump(writer);
 
     writer.endObject();
     writer.endMember(); // textures
@@ -71,6 +119,25 @@ dumpFramebuffer(StateWriter &writer, IDirect3DDevice *pDevice)
 {
     writer.beginMember("framebuffer");
     writer.beginObject();
+
+    std::visit([pDevice, &writer](auto& surface) {
+        using T = std::decay_t<decltype(surface)>;
+        if constexpr (!std::is_same_v<T, std::monostate>) {
+            image::Image *image = getSurfaceImage(surface);
+            if (image) {
+                writer.beginMember("RENDER_TARGET");
+                StateWriter::ImageDesc imgDesc;
+                imgDesc.depth = 1;
+                imgDesc.format = image->formatName;
+                writer.writeImage(image, imgDesc);
+                writer.endMember(); // RENDER_TARGET
+                delete image;
+            }
+
+            auto context = std::make_unique<struct CBContext<IDirect3DDevice>>(pDevice, &writer);
+            surface->EnumAttachedSurfaces(context.get(), &EnumAttachedSurfacesCB);
+        }
+    }, lastSetRenderTarget);
 
     writer.endObject();
     writer.endMember(); // framebuffer

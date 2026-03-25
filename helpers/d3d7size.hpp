@@ -189,8 +189,13 @@ _getFormatSize(LPDDPIXELFORMAT fmt, size_t & BlockSize, UINT & BlockWidth, UINT 
                 BlockSize = 128;
                 break;
             case D3DFMT_YUY2:
+            case D3DFMT_UYVY:
                 BlockWidth = 2;
                 BlockSize = 32;
+                break;
+            case D3DFMT_UV12:
+                BlockWidth = 2;
+                BlockSize = 48;
                 break;
             default:
                 os::log("apitrace: warning: %s: unknown FOURCC DDPIXELFORMAT %lu (%c%c%c%c)\n", __FUNCTION__, fmt->dwFourCC,

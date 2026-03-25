@@ -119,6 +119,7 @@ formatToString(D3DFORMAT fmt)
     case D3DFMT_RAWZ: return "D3DFMT_RAWZ";
     case D3DFMT_AL16: return "D3DFMT_AL16";
     case D3DFMT_R16: return "D3DFMT_R16";
+    case D3DFMT_YV12: return "D3DFMT_YV12";
     default:
         static char buf[12] = { 0 };
 
@@ -260,11 +261,27 @@ ConvertImageDXGI(D3DFORMAT SrcFormat,
 #endif /* HAVE_DXGI */
 
 
+inline void YUV2RGB(int Y, int U, int V, uint8_t& r, uint8_t& g, uint8_t& b, bool use601)
+{
+    int C = Y - 16;
+    int D = U - 128;
+    int E = V - 128;
+
+    int Rt = (298 * C + (use601 ? 409 : 459) * E + 128) >> 8;
+    int Gt = (298 * C - (use601 ? 100 : 55) * D - (use601 ? 208 : 136) * E + 128) >> 8;
+    int Bt = (298 * C + (use601 ? 516 : 541) * D + 128) >> 8;
+
+    r = std::clamp(Rt, 0, 255);
+    g = std::clamp(Gt, 0, 255);
+    b = std::clamp(Bt, 0, 255);
+}
+
 image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
              void *SrcData,
              INT SrcPitch,
-             UINT Width, UINT Height)
+             UINT Width, UINT Height,
+             PALETTEENTRY *palette)
 {
     image::Image *image;
 
@@ -284,6 +301,18 @@ ConvertImage(D3DFORMAT SrcFormat,
     case D3DFMT_X8R8G8B8:
     case D3DFMT_X8B8G8R8:
     case D3DFMT_R5G6B5:
+    case D3DFMT_UYVY:
+    case D3DFMT_YUY2:
+    case D3DFMT_YV12:
+        numChannels = 3;
+        channelType = image::TYPE_UNORM8;
+        break;
+    case D3DFMT_P8:
+        if (palette == nullptr) {
+            std::cerr << "warning: P8 format supplied without palette\n";
+            return nullptr;
+        }
+
         numChannels = 3;
         channelType = image::TYPE_UNORM8;
         break;
@@ -334,6 +363,8 @@ ConvertImage(D3DFORMAT SrcFormat,
         return NULL;
     }
 
+    uint8_t r, g, b;
+    bool use601 = true;
     const unsigned char *src;
     unsigned char *dst;
 
@@ -431,6 +462,54 @@ ConvertImage(D3DFORMAT SrcFormat,
                 ((float *)dst)[x] = util_half_to_float(((const uint16_t *)src)[x]);
             }
             break;
+        case D3DFMT_P8:
+            for (unsigned x = 0; x < Width; ++x) {
+                PALETTEENTRY color = palette[src[x]];
+                dst[3*x + 0] = color.peRed;
+                dst[3*x + 1] = color.peGreen;
+                dst[3*x + 2] = color.peBlue;
+            }
+            break;
+        case D3DFMT_UYVY:
+            for (unsigned x = 0; x < Width; x += 2) {
+                YUV2RGB(src[x * 2 + 1], src[x * 2], src[x * 2 + 2], r, g, b, use601);
+                dst[3*x + 0] = r;
+                dst[3*x + 1] = g;
+                dst[3*x + 2] = b;
+
+                YUV2RGB(src[x * 2 + 3], src[x * 2], src[x * 2 + 2], r, g, b, use601);
+                dst[3*x + 3] = r;
+                dst[3*x + 4] = g;
+                dst[3*x + 5] = b;
+            }
+            break;
+        case D3DFMT_YUY2:
+            for (unsigned x = 0; x < Width; x += 2) {
+                YUV2RGB(src[x * 2 + 0], src[x * 2 + 1], src[x * 2 + 3], r, g, b, use601);
+                dst[3*x + 0] = r;
+                dst[3*x + 1] = g;
+                dst[3*x + 2] = b;
+
+                YUV2RGB(src[x * 2 + 2], src[x * 2 + 1], src[x * 2 + 3], r, g, b, use601);
+                dst[3*x + 3] = r;
+                dst[3*x + 4] = g;
+                dst[3*x + 5] = b;
+            }
+            break;
+        case D3DFMT_YV12: {
+            const uint8_t* Y = (uint8_t*)SrcData;
+            const uint8_t* V = Y + Width * Height;
+            const uint8_t* U = V + (Width / 2) * (Height / 2);
+            for (unsigned x = 0; x < Width; x++) {
+                int i = (y / 2) * (Width / 2) + (x / 2);
+
+                YUV2RGB(Y[y * Width + x], U[i], V[i], r, g, b, use601);
+                dst[3*x + 0] = r;
+                dst[3*x + 1] = g;
+                dst[3*x + 2] = b;
+            }
+            break;
+        }
         default:
             assert(0);
             break;

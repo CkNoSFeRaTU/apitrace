@@ -200,7 +200,7 @@ IDirect3D3.methods += [
     StdMethod(HRESULT, "CreateLight", [Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateMaterial", [Out(Pointer(LPDIRECT3DMATERIAL3), "lplpDirect3DMaterial3"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateViewport", [Out(Pointer(LPDIRECT3DVIEWPORT3), "lplpD3DViewport3"), (LPUNKNOWN, "pUnkOuter")]),
-    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), Out(LPD3DFINDDEVICERESULT, "lpD3DFDR")]),
+    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT, "lpD3DFDR")]),
     StdMethod(HRESULT, "CreateDevice", [(REFCLSID, "rclsid"), (LPDIRECTDRAWSURFACE4, "lpDDS"), Out(Pointer(LPDIRECT3DDEVICE3), "lplpD3DDevice3"), (LPUNKNOWN, "lpUnk")]),
     StdMethod(HRESULT, "CreateVertexBuffer", [(LPD3DVERTEXBUFFERDESC, "lpD3DVertBufDesc"), Out(Pointer(LPDIRECT3DVERTEXBUFFER), "lplpD3DVertBuf"), (d3ddpFlags, "dwFlags"), (LPUNKNOWN, "lpUnk")]),
     StdMethod(HRESULT, "EnumZBufferFormats", [(REFCLSID, "riidDevice"), (LPD3DENUMPIXELFORMATSCALLBACK, "lpEnumCallback"), (LPVOID, "lpContext")], sideeffects=False),
@@ -373,8 +373,8 @@ IDirect3DExecuteBuffer.methods += [
 
 IDirect3DLight.methods += [
     StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
-    StdMethod(HRESULT, "SetLight", [(LPD3DLIGHT, "lpLight")]),
-    StdMethod(HRESULT, "GetLight", [Out(LPD3DLIGHT, "lpLight")], sideeffects=False),
+    StdMethod(HRESULT, "SetLight", [(LPD3DLIGHTP, "lpLight")]),
+    StdMethod(HRESULT, "GetLight", [Out(LPD3DLIGHTP, "lpLight")], sideeffects=False),
 ]
 
 IDirect3DMaterial.methods += [
@@ -416,7 +416,7 @@ IDirect3DViewport.methods += [
     StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
     StdMethod(HRESULT, "GetViewport", [Out(LPD3DVIEWPORT, "lpData")], sideeffects=False),
     StdMethod(HRESULT, "SetViewport", [(LPD3DVIEWPORT, "lpData")]),
-    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (DWORD, "dwFlags"), (LPDWORD, "lpOffScreen")]),
+    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (D3DTRANSFORM, "dwFlags"), (LPDWORD, "lpOffScreen")], sideeffects=False),
     StdMethod(HRESULT, "LightElements", [(DWORD, "dwElementCount"), (LPD3DLIGHTDATA, "lpData")]),
     StdMethod(HRESULT, "SetBackground", [(D3DMATERIALHANDLE, "hMat")]),
     StdMethod(HRESULT, "GetBackground", [Out(LPD3DMATERIALHANDLE, "lphMat"), Out(LPBOOL, "lpValid")], sideeffects=False),
@@ -432,7 +432,7 @@ IDirect3DViewport2.methods += [
     StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
     StdMethod(HRESULT, "GetViewport", [Out(LPD3DVIEWPORT, "lpData")], sideeffects=False),
     StdMethod(HRESULT, "SetViewport", [(LPD3DVIEWPORT, "lpData")]),
-    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (DWORD, "dwFlags"), (LPDWORD, "lpOffScreen")]),
+    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (D3DTRANSFORM, "dwFlags"), (LPDWORD, "lpOffScreen")], sideeffects=False),
     StdMethod(HRESULT, "LightElements", [(DWORD, "dwElementCount"), (LPD3DLIGHTDATA, "lpData")]),
     StdMethod(HRESULT, "SetBackground", [(D3DMATERIALHANDLE, "hMat")]),
     StdMethod(HRESULT, "GetBackground", [Out(LPD3DMATERIALHANDLE, "lphMat"), Out(LPBOOL, "lpValid")], sideeffects=False),
@@ -450,7 +450,7 @@ IDirect3DViewport3.methods += [
     StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D")]),
     StdMethod(HRESULT, "GetViewport", [Out(LPD3DVIEWPORT, "lpData")], sideeffects=False),
     StdMethod(HRESULT, "SetViewport", [(LPD3DVIEWPORT, "lpData")]),
-    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (DWORD, "dwFlags"), (LPDWORD, "lpOffScreen")]),
+    StdMethod(HRESULT, "TransformVertices", [(DWORD, "dwVertexCount"), (LPD3DTRANSFORMDATA, "lpData"), (D3DTRANSFORM, "dwFlags"), (LPDWORD, "lpOffScreen")], sideeffects=False),
     StdMethod(HRESULT, "LightElements", [(DWORD, "dwElementCount"), (LPD3DLIGHTDATA, "lpData")]),
     StdMethod(HRESULT, "SetBackground", [(D3DMATERIALHANDLE, "hMat")]),
     StdMethod(HRESULT, "GetBackground", [Out(LPD3DMATERIALHANDLE, "lphMat"), Out(LPBOOL, "lpValid")], sideeffects=False),

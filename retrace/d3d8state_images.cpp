@@ -42,7 +42,8 @@ image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
              void *SrcData,
              INT SrcPitch,
-             UINT Width, UINT Height);
+             UINT Width, UINT Height,
+             PALETTEENTRY *palette);
 
 
 static image::Image *
@@ -70,7 +71,7 @@ getSurfaceImage(IDirect3DDevice8 *pDevice,
         return NULL;
     }
 
-    image = ConvertImage(Desc.Format, LockedRect.pBits, LockedRect.Pitch, Desc.Width, Desc.Height);
+    image = ConvertImage(Desc.Format, LockedRect.pBits, LockedRect.Pitch, Desc.Width, Desc.Height, nullptr);
 
     pSurface->UnlockRect();
 

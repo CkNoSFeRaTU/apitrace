@@ -42,7 +42,8 @@ image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
              void *SrcData,
              INT SrcPitch,
-             UINT Width, UINT Height);
+             UINT Width, UINT Height,
+             PALETTEENTRY *palette);
 
 const char *
 formatToString(D3DFORMAT fmt);

@@ -131,7 +131,16 @@ getSurfaceImage<IDirectDrawSurface4>(IDirectDrawSurface4*);
 extern template image::Image*
 getSurfaceImage<IDirectDrawSurface7>(IDirectDrawSurface7*);
 
+DWORD
+getRenderState(DWORD state);
+void
+setRenderState(DWORD state, DWORD value);
+
 using Surface = std::variant<IDirectDrawSurface*, IDirectDrawSurface2*, IDirectDrawSurface3*, IDirectDrawSurface4*, IDirectDrawSurface7*, std::monostate>;
+extern Surface lastSetRenderTarget;
+void
+setRenderTarget(Surface pSurface);
+
 extern Surface lastSetSurface;
 void
 setSurface(Surface pSurface);
@@ -152,13 +161,15 @@ DWORD
 getMatrixHandle(DWORD hOriginal);
 
 using Texture = std::variant<IDirect3DTexture*, IDirect3DTexture2*, std::monostate>;
-extern Texture lastSetTexture;
+extern std::vector<Texture> lastSetTextures;
 void
 setTextureMap(DWORD hOriginal, DWORD hTexture, Texture pTexture);
 DWORD
 getTextureHandle(DWORD hOriginal);
 void
 setTexture(DWORD hOriginal);
+void
+clearTextures();
 
 void
 writeTextureRenderState(StateWriter &writer, std::string state, DWORD value);

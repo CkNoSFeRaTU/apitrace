@@ -248,6 +248,13 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
         self.insideStruct -= 1
 
     def visitPolymorphic(self, polymorphic, lvalue, rvalue):
+        # LPD3DLIGHT polymorphic hack
+        reinterpret = False
+        if polymorphic.switchExpr == "lpLight->dwSize":
+            polymorphic.defaultType = None
+            polymorphic.switchExpr = 'dwSize'
+            reinterpret = True
+
         if polymorphic.defaultType is None:
             switchExpr = self.expand(polymorphic.switchExpr)
             print(r'    switch (%s) {' % switchExpr)
@@ -256,7 +263,10 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
                     print(r'    %s:' % case)
                 caseLvalue = lvalue
                 if type.expr is not None:
-                    caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
+                    if reinterpret:
+                        caseLvalue = 'reinterpret_cast<%s>(%s)' % (type, caseLvalue)
+                    else:
+                        caseLvalue = 'static_cast<%s>(%s)' % (type, caseLvalue)
                 print(r'        {')
                 try:
                     self.visit(type, caseLvalue, rvalue)

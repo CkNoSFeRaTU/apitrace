@@ -73,7 +73,6 @@ dumpTextureStates(StateWriter &writer, IDirect3DDevice7 *pDevice)
         _DUMP_TS(D3DTSS_ADDRESSU);
         _DUMP_TS(D3DTSS_ADDRESSV);
         _DUMP_TS(D3DTSS_BORDERCOLOR);
-        _DUMP_TS(D3DTSS_FORCE_DWORD);
         _DUMP_TS(D3DTSS_MAGFILTER);
         _DUMP_TS(D3DTSS_MAXANISOTROPY);
         _DUMP_TS(D3DTSS_MAXMIPLEVEL);

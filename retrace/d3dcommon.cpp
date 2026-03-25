@@ -48,7 +48,8 @@ image::Image *
 ConvertImage(D3DFORMAT SrcFormat,
              void *SrcData,
              INT SrcPitch,
-             UINT Width, UINT Height);
+             UINT Width, UINT Height,
+             PALETTEENTRY *palette);
 
 D3DFORMAT
 convertFormat(const DDPIXELFORMAT & ddpf)
@@ -201,7 +202,7 @@ getSurfaceImage(S *pSurface)
 
     image::Image *image = nullptr;
     D3DFORMAT Format = convertFormat(desc.ddpfPixelFormat);
-    {
+    if (Format != D3DFMT_UNKNOWN) {
         INT pitch = 0;
         if (desc.dwFlags & DDSD_PITCH) {
             pitch = desc.lPitch;
@@ -223,43 +224,40 @@ getSurfaceImage(S *pSurface)
             }
         }
 
-        // TODO: move P8 to d3d9 as it technically exist in d3d8/d3d9.
+        PALETTEENTRY *palette = nullptr;
         if (Format == D3DFMT_P8) {
             IDirectDrawPalette *pPalette = nullptr;
             hr = pSurface->GetPalette(&pPalette);
-            if (FAILED(hr)) {
-                return nullptr;
-            }
-
-            PALETTEENTRY entries[256];
-            if (FAILED(pPalette->GetEntries(0, 0, 256, entries))) {
-                pPalette->Release();
-                return nullptr;
-            }
-
-            image = new image::Image(desc.dwWidth, desc.dwHeight, 3, true, image::TYPE_UNORM8);
-            if (!image) {
-                pPalette->Release();
-                return nullptr;
-            }
-
-            uint8_t *dst = image->start();
-            const uint8_t *src = (uint8_t *)desc.lpSurface;
-            for (unsigned y = 0; y < desc.dwHeight; ++y) {
-                for (unsigned x = 0; x < desc.dwWidth; ++x) {
-                    PALETTEENTRY color = entries[src[x]];
-                    dst[3*x + 0] = color.peRed;
-                    dst[3*x + 1] = color.peGreen;
-                    dst[3*x + 2] = color.peBlue;
+            if (SUCCEEDED(hr)) {
+                palette = new PALETTEENTRY[256];
+                hr = pPalette->GetEntries(0, 0, 256, palette);
+                if (FAILED(hr)) {
+                    pPalette->Release();
                 }
-                src += pitch;
-                dst += image->stride();
             }
-            image->formatName = formatToString(Format);
-            return image;
+
+            // Palette can also come from primary surface
+            if (FAILED(hr)) {
+                std::visit([&hr, &palette](auto& surface) {
+                using T = std::decay_t<decltype(surface)>;
+                    if constexpr (!std::is_same_v<T, std::monostate>) {
+                        IDirectDrawPalette *pPalette = nullptr;
+
+                        hr = surface->GetPalette(&pPalette);
+                        if (SUCCEEDED(hr)) {
+                            palette = new PALETTEENTRY[256];
+                            hr = pPalette->GetEntries(0, 0, 256, palette);
+                            if (FAILED(hr)) {
+                                pPalette->Release();
+                            }
+                        }
+                    }
+                }, lastSetRenderTarget);
+            }
         }
 
-        image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight);
+        image = ConvertImage(Format, desc.lpSurface, pitch, desc.dwWidth, desc.dwHeight, palette);
+        delete palette;
     }
 
     pSurface->Unlock(nullptr);
@@ -335,8 +333,9 @@ EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*
 template HRESULT CALLBACK
 EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);
 
+Surface lastSetRenderTarget = std::monostate{};
 Surface lastSetSurface = std::monostate{};
-Texture lastSetTexture = std::monostate{};
+std::vector<Texture> lastSetTextures;
 struct textureBind {
     DWORD hTexture;
     Texture pTexture;
@@ -345,6 +344,97 @@ static std::map<DWORD, DWORD> stateBlockMap;
 static std::map<DWORD, DWORD> materialMap;
 static std::map<DWORD, DWORD> matrixMap;
 static std::map<DWORD, textureBind> textureMap;
+static std::map<DWORD, DWORD> renderStates = {
+    {D3DRENDERSTATE_ANTIALIAS, 0},
+    {D3DRENDERSTATE_TEXTUREPERSPECTIVE, 0},
+    {D3DRENDERSTATE_ZENABLE, 0},
+    {D3DRENDERSTATE_FILLMODE, 0},
+    {D3DRENDERSTATE_SHADEMODE, 0},
+    {D3DRENDERSTATE_LINEPATTERN, 0},
+    {D3DRENDERSTATE_ZWRITEENABLE, 0},
+    {D3DRENDERSTATE_ALPHATESTENABLE, 0},
+    {D3DRENDERSTATE_LASTPIXEL, 0},
+    {D3DRENDERSTATE_SRCBLEND, 0},
+    {D3DRENDERSTATE_DESTBLEND, 0},
+    {D3DRENDERSTATE_CULLMODE, 0},
+    {D3DRENDERSTATE_ZFUNC, 0},
+    {D3DRENDERSTATE_ALPHAREF, 0},
+    {D3DRENDERSTATE_ALPHAFUNC, 0},
+    {D3DRENDERSTATE_DITHERENABLE, 0},
+    {D3DRENDERSTATE_ALPHABLENDENABLE, 0},
+    {D3DRENDERSTATE_FOGENABLE, 0},
+    {D3DRENDERSTATE_SPECULARENABLE, 0},
+    {D3DRENDERSTATE_ZVISIBLE, 0},
+    {D3DRENDERSTATE_STIPPLEDALPHA, 0},
+    {D3DRENDERSTATE_FOGCOLOR, 0},
+    {D3DRENDERSTATE_FOGTABLEMODE, 0},
+    {D3DRENDERSTATE_FOGSTART, 0},
+    {D3DRENDERSTATE_FOGEND, 0},
+    {D3DRENDERSTATE_FOGDENSITY, 0},
+    {D3DRENDERSTATE_WRAP0, 0},
+    {D3DRENDERSTATE_WRAP1, 0},
+    {D3DRENDERSTATE_WRAP2, 0},
+    {D3DRENDERSTATE_WRAP3, 0},
+    {D3DRENDERSTATE_WRAP4, 0},
+    {D3DRENDERSTATE_WRAP5, 0},
+    {D3DRENDERSTATE_WRAP6, 0},
+    {D3DRENDERSTATE_WRAP7, 0},
+    {D3DRENDERSTATE_TEXTUREHANDLE, 0},
+    {D3DRENDERSTATE_TEXTUREADDRESS, 0},
+    {D3DRENDERSTATE_WRAPU, 0},
+    {D3DRENDERSTATE_WRAPV, 0},
+    {D3DRENDERSTATE_MONOENABLE, 0},
+    {D3DRENDERSTATE_ROP2, 0},
+    {D3DRENDERSTATE_PLANEMASK, 0},
+    {D3DRENDERSTATE_TEXTUREMAG, 0},
+    {D3DRENDERSTATE_TEXTUREMIN, 0},
+    {D3DRENDERSTATE_TEXTUREMAPBLEND, 0},
+    {D3DRENDERSTATE_SUBPIXEL, 0},
+    {D3DRENDERSTATE_SUBPIXELX, 0},
+    {D3DRENDERSTATE_STIPPLEENABLE, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN00, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN01, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN02, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN03, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN04, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN05, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN06, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN07, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN08, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN09, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN10, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN11, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN12, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN13, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN14, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN15, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN16, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN17, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN18, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN19, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN20, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN21, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN22, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN23, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN24, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN25, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN26, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN27, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN28, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN29, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN30, 0},
+    {D3DRENDERSTATE_STIPPLEPATTERN31, 0},
+};
+
+DWORD
+getRenderState(DWORD state) {
+    return renderStates[state];
+}
+
+void
+setRenderState(DWORD state, DWORD value) {
+    renderStates[state] = value;
+}
 
 DWORD
 getStateBlockHandle(DWORD hOriginal) {
@@ -475,7 +565,17 @@ setTexture(DWORD hTexture) {
         return;
     }
 
-    lastSetTexture = getTextureFromMap(hTexture);
+    lastSetTextures.push_back(getTextureFromMap(hTexture));
+}
+
+void
+clearTextures() {
+    lastSetTextures.clear();
+}
+
+void
+setRenderTarget(Surface pSurface) {
+    lastSetRenderTarget = pSurface;
 }
 
 void
@@ -486,9 +586,6 @@ setSurface(Surface pSurface) {
 void
 writeTextureRenderState(StateWriter &writer, std::string state, DWORD value)
 {
-/*
-    ("D3DTSS_TEXTURETRANSFORMFLAGS", D3DTEXTURETRANSFORMFLAGS),
-*/
     if (state == "D3DTSS_MAXMIPLEVEL"
         || state == "D3DTSS_MAXANISOTROPY") {
         writer.writeIntMember(state.c_str(), value);
@@ -734,8 +831,7 @@ writeTextureRenderState(StateWriter &writer, std::string state, DWORD value)
 void
 writeRenderState(StateWriter &writer, std::string state, DWORD value)
 {
-    if (state == "D3DRENDERSTATE_ANTIALIAS"
-        || state == "D3DRENDERSTATE_TEXTUREPERSPECTIVE"
+    if (state == "D3DRENDERSTATE_TEXTUREPERSPECTIVE"
         || state == "D3DRENDERSTATE_ZENABLE"
         || state == "D3DRENDERSTATE_ZWRITEENABLE"
         || state == "D3DRENDERSTATE_ALPHATESTENABLE"
@@ -814,6 +910,21 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
         || state == "D3DRENDERSTATE_MIPMAPLODBIAS"
         || state == "D3DRENDERSTATE_ZBIAS") {
         writer.writeFloatMember(state.c_str(), static_cast<float>(value));
+    } else if (state == "D3DRENDERSTATE_ANTIALIAS") {
+        switch (value) {
+            case(D3DANTIALIAS_NONE):
+                writer.writeStringMember(state.c_str(), "D3DANTIALIAS_NONE");
+                break;
+            case(D3DANTIALIAS_SORTDEPENDENT):
+                writer.writeStringMember(state.c_str(), "D3DANTIALIAS_SORTDEPENDENT");
+                break;
+            case(D3DANTIALIAS_SORTINDEPENDENT):
+                writer.writeStringMember(state.c_str(), "D3DANTIALIAS_SORTINDEPENDENT");
+                break;
+            default:
+                writer.writeIntMember(state.c_str(), value);
+                break;
+        }
     } else if (state == "D3DRENDERSTATE_WRAP0"
         || state == "D3DRENDERSTATE_WRAP1"
         || state == "D3DRENDERSTATE_WRAP2"
@@ -951,49 +1062,36 @@ writeRenderState(StateWriter &writer, std::string state, DWORD value)
                 break;
         }
     } else if (state == "D3DRENDERSTATE_FILLMODE") {
-        switch (value) {
-            case(D3DFILL_POINT):
-                writer.writeStringMember(state.c_str(), "D3DFILL_POINT");
-                break;
-            case(D3DFILL_WIREFRAME):
-                writer.writeStringMember(state.c_str(), "D3DFILL_WIREFRAME");
-                break;
-            case(D3DFILL_SOLID):
-                writer.writeStringMember(state.c_str(), "D3DFILL_SOLID");
-                break;
-            default:
-                writer.writeIntMember(state.c_str(), value);
-                break;
+        std::string buf{};
+        if (value & D3DFILL_POINT) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DFILL_POINT");
         }
-    } else if (state == "D3DRENDERSTATE_FILLMODE") {
-        switch (value) {
-            case(D3DFILL_POINT):
-                writer.writeStringMember(state.c_str(), "D3DFILL_POINT");
-                break;
-            case(D3DFILL_WIREFRAME):
-                writer.writeStringMember(state.c_str(), "D3DFILL_WIREFRAME");
-                break;
-            case(D3DFILL_SOLID):
-                writer.writeStringMember(state.c_str(), "D3DFILL_SOLID");
-                break;
-            default:
-                writer.writeIntMember(state.c_str(), value);
-                break;
+        if (value & D3DFILL_WIREFRAME) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DFILL_WIREFRAME");
+        }
+        if (value & D3DFILL_SOLID) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DFILL_SOLID");
+        }
+        if (buf.length() > 0) {
+            writer.writeStringMember(state.c_str(), buf.c_str());
+        } else {
+            writer.writeIntMember(state.c_str(), value);
         }
     } else if (state == "D3DRENDERSTATE_SHADEMODE") {
-        switch (value) {
-            case(D3DSHADE_FLAT):
-                writer.writeStringMember(state.c_str(), "D3DSHADE_FLAT");
-                break;
-            case(D3DSHADE_GOURAUD):
-                writer.writeStringMember(state.c_str(), "D3DSHADE_GOURAUD");
-                break;
-            case(D3DSHADE_PHONG):
-                writer.writeStringMember(state.c_str(), "D3DSHADE_PHONG");
-                break;
-            default:
-                writer.writeIntMember(state.c_str(), value);
-                break;
+        std::string buf{};
+        if (value & D3DSHADE_FLAT) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DSHADE_FLAT");
+        }
+        if (value & D3DSHADE_GOURAUD) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DSHADE_GOURAUD");
+        }
+        if (value & D3DSHADE_PHONG) {
+            buf.append(buf.length() > 0 ? " | " : "").append("D3DSHADE_PHONG");
+        }
+        if (buf.length() > 0) {
+            writer.writeStringMember(state.c_str(), buf.c_str());
+        } else {
+            writer.writeIntMember(state.c_str(), value);
         }
     } else if (state == "D3DRENDERSTATE_CULLMODE") {
         switch (value) {
