@@ -164,6 +164,8 @@ using Texture = std::variant<IDirect3DTexture*, IDirect3DTexture2*, std::monosta
 extern std::vector<Texture> lastSetTextures;
 void
 setTextureMap(DWORD hOriginal, DWORD hTexture, Texture pTexture);
+void
+swapTextures(Texture pTex1, Texture pTex2);
 DWORD
 getTextureHandle(DWORD hOriginal);
 void

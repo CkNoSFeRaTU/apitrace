@@ -532,6 +532,33 @@ getTextureHandle(DWORD hOriginal) {
 }
 
 void
+swapTextures(Texture pTex1, Texture pTex2) {
+    using T1 = std::decay_t<decltype(pTex1)>;
+    using T2 = std::decay_t<decltype(pTex2)>;
+
+    if (std::is_same_v<T1, std::monostate> || std::is_same_v<T2, std::monostate> || pTex1 == pTex2) {
+        return;
+    }
+
+    textureBind *first = nullptr;
+    textureBind *second = nullptr;
+
+    for (auto it = textureMap.begin(); it != textureMap.end(); it++) {
+        if (it->second.pTexture == pTex1) {
+            first = &it->second;
+        } else if (it->second.pTexture == pTex2) {
+            second = &it->second;
+        }
+
+        if (first && second) {
+            first->pTexture = pTex2;
+            second->pTexture = pTex1;
+            return;
+        }
+    }
+}
+
+void
 setTextureMap(DWORD hOriginal, DWORD hTexture, Texture pTexture) {
     if (!hOriginal || !hTexture) {
         return;
