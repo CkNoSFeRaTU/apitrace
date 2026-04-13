@@ -28,6 +28,7 @@
 #include <stdint.h>
 
 #include <variant>
+#include <vector>
 
 #include "image.hpp"
 #include "com_ptr.hpp"

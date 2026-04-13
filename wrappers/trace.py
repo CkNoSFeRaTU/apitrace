@@ -983,12 +983,30 @@ class Tracer:
         print(r'    if (!ppvObj || !*ppvObj) {')
         print(r'        return;')
         print(r'    }')
+        isDDraw = False
         for iface in ifaces:
-            if iface.name == "IDirect3DDevice":
-                print(r'    if (riid == IID_%s || riid == IID_IDirect3DHALDevice || riid == IID_IDirect3DRGBDevice || riid == IID_IDirect3DRampDevice || riid == IID_IDirect3DMMXDevice) {' % (iface.name,))
-            else:
-                print(r'    if (riid == IID_%s) {' % (iface.name,))
+            if iface.name == 'IDirect3DDevice':
+                 isDDraw = True
+                 break
+        if isDDraw:
+            print(r'    if (riid == IID_IDirect3DHALDevice || riid == IID_IDirect3DRGBDevice || riid == IID_IDirect3DRampDevice || riid == IID_IDirect3DMMXDevice) {')
+            print(r'         if (!strncmp(entryName, "IDirect3DDevice", 15)) {')
+            print(r'              WrapIDirectDrawSurface::_wrap(entryName, (IDirectDrawSurface **) ppvObj);')
+            print(r'              return;')
+            print(r'         } else {')
+            print(r'              WrapIDirect3DDevice::_wrap(entryName, (IDirect3DDevice **) ppvObj);')
+            print(r'              return;')
+            print(r'         }')
+            print(r'    }')
+        for iface in ifaces:
+            print(r'    if (riid == IID_%s) {' % (iface.name,))
             print(r'        Wrap%s::_wrap(entryName, (%s **) ppvObj);' % (iface.name, iface.name))
+            print(r'        return;')
+            print(r'    }')
+        if isDDraw:
+            # Games can query local device GUID which they saved from previous runs without calling enumerators
+            print(r'    if (!strncmp(entryName, "IDirectDrawSurface", 18)) {')
+            print(r'        WrapIDirect3DDevice::_wrap(entryName, (IDirect3DDevice **) ppvObj);')
             print(r'        return;')
             print(r'    }')
         print(r'    warnIID(entryName, riid, *ppvObj, "unsupported");')

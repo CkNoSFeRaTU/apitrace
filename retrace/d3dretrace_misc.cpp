@@ -135,14 +135,14 @@ retrace_enumsurfacescallback(trace::Call& call)
 }
 
 static void
-retrace_enumsurfaces7callback(trace::Call& call)
+retrace_executebufferdump(trace::Call& call)
 {
 }
 
 const retrace::Entry ddraw_misc_callbacks[] = {
     { "bitblt", &retrace_bitblt },
     { "enumsurfacescallback", &retrace_enumsurfacescallback },
-    { "LPDDENUMSURFACESCALLBACK7", &retrace_enumsurfaces7callback },
+    { "executebufferdump", &retrace_executebufferdump },
     { NULL, NULL },
 };
 

@@ -37,6 +37,8 @@
 #include "dxgistate.hpp"
 #endif
 
+#include <algorithm>
+
 namespace d3dstate {
 
 const char *
