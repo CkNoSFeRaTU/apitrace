@@ -29,9 +29,10 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: apitrace-${{ matrix.target }}-${{ matrix.arch }}
+        name: apitraceddraw-${{ matrix.target }}-${{ matrix.arch }}.7z
         path: build/apitrace-*.7z
         if-no-files-found: error
+        archive: false
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
