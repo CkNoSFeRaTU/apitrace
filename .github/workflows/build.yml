@@ -12,13 +12,13 @@ jobs:
         arch: [x86]
         target: [win32, win64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 1
         submodules: recursive
     - name: Cache Downloads
       id: cache-downloads
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           *qtbase-*.7z
@@ -27,7 +27,7 @@ jobs:
     - name: Build
       run: .\ci\build-msvc.ps1 -arch ${{ matrix.arch }} -target ${{ matrix.target }} -config Release
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: apitrace-${{ matrix.target }}-${{ matrix.arch }}
         path: build/apitrace-*.7z
@@ -38,11 +38,11 @@ jobs:
     needs: [msvc]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 1
         submodules: recursive
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       id: download
       with:
         path: artifacts
