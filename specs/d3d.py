@@ -267,7 +267,7 @@ IDirect3DDevice2.methods += [
     StdMethod(HRESULT, "DrawPrimitive", [(D3DPRIMITIVETYPE, "d3dptPrimitiveType"), (D3DVERTEXTYPE, "d3dvtVertexType"), (Blob(VOID, "dwVertexCount * _getLegacyVertexSize(d3dvtVertexType)"), "lpvVertices"), (DWORD, "dwVertexCount"), (d3ddpFlags, "dwFlags")]),
     StdMethod(HRESULT, "DrawIndexedPrimitive", [(D3DPRIMITIVETYPE, "d3dptPrimitiveType"), (D3DVERTEXTYPE, "d3dvtVertexType"), (Blob(VOID, "dwVertexCount * _getLegacyVertexSize(d3dvtVertexType)"), "lpvVertices"), (DWORD, "dwVertexCount"), (Blob(WORD, "dwIndexCount * sizeof(WORD)"), "lpwIndices"), (DWORD, "dwIndexCount"), (d3ddpFlags, "dwFlags")]),
     StdMethod(HRESULT, "SetClipStatus", [(LPD3DCLIPSTATUS, "lpD3DClipStatus")]),
-    StdMethod(HRESULT, "GetClipStatus", [(LPD3DCLIPSTATUS, "lpD3DClipStatus")], sideeffects=False),
+    StdMethod(HRESULT, "GetClipStatus", [Out(LPD3DCLIPSTATUS, "lpD3DClipStatus")], sideeffects=False),
 ]
 
 IDirect3DDevice3.methods += [

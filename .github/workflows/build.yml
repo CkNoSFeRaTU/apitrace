@@ -25,7 +25,7 @@ jobs:
           *qttools-*.7z
         key: ${{ runner.os }}-${{ matrix.target }}-${{ matrix.arch }}-5.15.2-1
     - name: Build
-      run: .\ci\build-msvc.ps1 -arch ${{ matrix.arch }} -target ${{ matrix.target }} -config Release
+      run: .\ci\build-msvc.ps1 -arch ${{ matrix.arch }} -target ${{ matrix.target }} -config RelWithDebInfo
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:

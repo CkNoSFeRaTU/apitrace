@@ -179,7 +179,7 @@ D3DCLIP = Flags(DWORD, [
     "D3DCLIP_GEN5",
 ])
 
-D3DSTATUS = Flags(DWORD, [
+D3DSTATUSClipFlags = Flags(DWORD, [
     "D3DSTATUS_DEFAULT",
     "D3DSTATUS_CLIPUNIONALL",
     "D3DSTATUS_CLIPUNIONLEFT",
@@ -223,8 +223,8 @@ D3DTRANSFORMDATA = Struct("D3DTRANSFORMDATA", [
     (DWORD, "dwOutSize"),
     (Array(D3DHVERTEX, "{parent}dwVertexCount"), "lpHOut"),
     (D3DCLIP, "dwClip"),
-    (D3DSTATUS, "dwClipIntersection"),
-    (D3DSTATUS, "dwClipUnion"),
+    (D3DSTATUSClipFlags, "dwClipIntersection"),
+    (D3DSTATUSClipFlags, "dwClipUnion"),
     (D3DRECT, "drExtent"),
 ])
 LPD3DTRANSFORMDATA = Pointer(D3DTRANSFORMDATA)
@@ -884,21 +884,28 @@ D3DBRANCH = Struct("D3DBRANCH", [
     (DWORD, "dwOffset"),
 ])
 
-D3DSTATUS = Struct("D3DSTATUS", [
-    (DWORD, "dwFlags"),
-    (DWORD, "dwStatus"),
-    (D3DRECT, "drExtent"),
-])
-
-D3DSETSTATUS = Flags(DWORD, [
+D3DSTATUSFlags = Flags(DWORD, [
     "D3DSETSTATUS_STATUS",
     "D3DSETSTATUS_EXTENTS",
     "D3DSETSTATUS_ALL",
 ])
 
+D3DSTATUS = Struct("D3DSTATUS", [
+    (D3DSTATUSFlags, "dwFlags"),
+    (D3DSTATUSClipFlags, "dwStatus"),
+    (D3DRECT, "drExtent"),
+])
+
+
+D3DCLIPSTATUSFlags = Flags(DWORD, [
+    "D3DCLIPSTATUS_STATUS",
+    "D3DCLIPSTATUS_EXTENTS2",
+    "D3DCLIPSTATUS_EXTENTS3",
+])
+
 D3DCLIPSTATUS = Struct("D3DCLIPSTATUS", [
-    (DWORD, "dwFlags"),
-    (DWORD, "dwStatus"),
+    (D3DCLIPSTATUSFlags, "dwFlags"),
+    (D3DSTATUSClipFlags, "dwStatus"),
     (Float, "minx"),
     (Float, "maxx"),
     (Float, "miny"),
@@ -907,12 +914,6 @@ D3DCLIPSTATUS = Struct("D3DCLIPSTATUS", [
     (Float, "maxz"),
 ])
 LPD3DCLIPSTATUS = Pointer(D3DCLIPSTATUS)
-
-D3DCLIPSTATUS = Flags(DWORD, [
-    "D3DCLIPSTATUS_STATUS",
-    "D3DCLIPSTATUS_EXTENTS2",
-    "D3DCLIPSTATUS_EXTENTS3",
-])
 
 D3DSTATS = Struct("D3DSTATS", [
     (DWORD, "dwSize"),
