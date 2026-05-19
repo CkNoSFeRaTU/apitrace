@@ -207,9 +207,9 @@ class D3DRetracer(Retracer):
                 print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
 
         if interface.name.startswith('IDirectDraw') and method.name in ('EnumSurfaces', 'EnumAttachedSurfaces'):
-            print(r'    CBEnumContext context{call};')
+            print(r'    CBREnumContext context{call};')
             print(r'    lpContext = &context;')
-            print(r'    lpEnumSurfacesCallback = &EnumAttachedSurfacesCB;')
+            print(r'    lpEnumSurfacesCallback = &EnumAttachedSurfacesCBR;')
 
         if interface.name == 'IDirect3DDevice7' and method.name in ('ApplyStateBlock', 'CaptureStateBlock', 'DeleteStateBlock'):
             print(r'    %s = d3dstate::getStateBlockHandle(%s);' % (method.getArgByName('dwBlockHandle').name, method.getArgByName('dwBlockHandle').name))
@@ -632,32 +632,29 @@ def main():
     print('   TEXTURE_SET,')
     print('};')
 
-    print('struct CBEnumContext {')
+    print('struct CBREnumContext {')
     print('    trace::Call &call;')
     print('};')
 
     print('template <typename S, typename D>')
     print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void* pContext);')
+    print('EnumAttachedSurfacesCBR(S* pSurface, D* pDesc, void* pContext);')
 
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
+    print('EnumAttachedSurfacesCBR<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
+    print('EnumAttachedSurfacesCBR<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
+    print('EnumAttachedSurfacesCBR<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
 
     retracer = D3DRetracer()
     retracer.table_name = 'd3dretrace::ddraw_callbacks'
     retracer.retraceApi(api)
 
     print('template <typename S, typename D>')
-    print('using EnumAttachedSurfaces = HRESULT(*)(S *, D *, void *);')
-
-    print('template <typename S, typename D>')
     print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void *pContext) {')
-    print('    CBEnumContext* context = static_cast<CBEnumContext*>(pContext);')
+    print('EnumAttachedSurfacesCBR(S* pSurface, D* pDesc, void *pContext) {')
+    print('    CBREnumContext* context = static_cast<CBREnumContext*>(pContext);')
     print('    unsigned long long addr = d3dretrace::getEnumSurface();')
     print('    if (addr && pSurface) {')
     print('        trace::Value &val = *new trace::Pointer(static_cast<uintptr_t>(addr));')

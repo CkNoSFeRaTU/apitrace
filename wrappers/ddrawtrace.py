@@ -202,12 +202,12 @@ class DDrawTracer(DllTracer):
 
         if interface.name.startswith('IDirectDraw') and method.name in ('EnumAttachedSurfaces', 'EnumSurfaces'):
             resultOverride = "_result"
-            print('    CBEnumContext context{lpContext, (void*)lpEnumSurfacesCallback, "%s::%s"};' % (interface.name, method.name))
+            print('    CBTEnumContext context{lpContext, (void*)lpEnumSurfacesCallback, "%s::%s"};' % (interface.name, method.name))
 
             if method.name == 'EnumAttachedSurfaces':
-                print('    _result = _this->EnumAttachedSurfaces(&context, &EnumAttachedSurfacesCB);')
+                print('    _result = _this->EnumAttachedSurfaces(&context, &EnumAttachedSurfacesCBT);')
             else:
-                print('    _result = _this->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, &EnumAttachedSurfacesCB);')
+                print('    _result = _this->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, &EnumAttachedSurfacesCBT);')
 
 
         if interface.name == 'IDirect3DDevice2' and method.name == 'Begin':
@@ -511,7 +511,7 @@ if __name__ == '__main__':
     api = API()
     api.addModule(ddraw)
 
-    print('struct CBEnumContext {')
+    print('struct CBTEnumContext {')
     print('    void *pContext;')
     print('    void *pCallback;')
     print('    std::string name;')
@@ -519,14 +519,14 @@ if __name__ == '__main__':
 
     print('template <typename S, typename D>')
     print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void* pContext);')
+    print('EnumAttachedSurfacesCBT(S* pSurface, D* pDesc, void* pContext);')
 
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
+    print('EnumAttachedSurfacesCBT<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
+    print('EnumAttachedSurfacesCBT<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
     print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
+    print('EnumAttachedSurfacesCBT<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
 
     tracer = DDrawTracer()
     visitor = ComplexValueSerializer(tracer.serializerFactory())
@@ -554,12 +554,12 @@ if __name__ == '__main__':
     tracer.traceApi(api)
 
     print('template <typename S, typename D>')
-    print('using EnumAttachedSurfaces = HRESULT(*)(S *, D *, void *);')
+    print('using EnumAttachedSurfaces = HRESULT(CALLBACK *)(S *, D *, void *);')
 
     print('template <typename S, typename D>')
     print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCB(S* pSurface, D* pDesc, void *pContext) {')
-    print('    CBEnumContext* context = static_cast<CBEnumContext*>(pContext);')
+    print('EnumAttachedSurfacesCBT(S* pSurface, D* pDesc, void *pContext) {')
+    print('    CBTEnumContext* context = static_cast<CBTEnumContext*>(pContext);')
     print('    HRESULT hr = DDENUMRET_CANCEL;')
 
     print('    const char* enumsurfaces_args[4] = { "lpContext", "lpEnumSurfacesCallback", "lpDDSurface", "lpDDSurfaceDesc" };')
@@ -594,7 +594,11 @@ if __name__ == '__main__':
     print('    trace::localWriter.endReturn();')
     print('    trace::localWriter.endLeave();')
 
+    print('    #ifdef _MSC_VER')
+    print('    EnumAttachedSurfaces<S, D> callback = static_cast<EnumAttachedSurfaces<S, D>>(context->pCallback);')
+    print('    #else')
     print('    EnumAttachedSurfaces<S, D> callback = reinterpret_cast<EnumAttachedSurfaces<S, D>>(context->pCallback);')
+    print('    #endif')
     print('    if (callback) {')
     print('        if constexpr (std::is_same_v<S, IDirectDrawSurface>) {')
     print('            WrapIDirectDrawSurface::_wrap(context->name.c_str(), &pSurface);')
