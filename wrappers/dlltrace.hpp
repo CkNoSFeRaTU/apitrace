@@ -31,6 +31,7 @@
 #include <string.h>
 #include <string>
 
+static bool disableCopies = false;
 
 class Module
 {
@@ -40,6 +41,7 @@ public:
     Module(const char *szName) :
         m_szName(szName)
     {
+        disableCopies = getenv("APITRACE_DISABLE_COPIES") ? true : false;
     }
 
     ~Module()

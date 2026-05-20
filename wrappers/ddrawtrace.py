@@ -175,7 +175,7 @@ class DDrawTracer(DllTracer):
             print('    }')
 
         if method.name == 'Unlock':
-            print('    if (_MappedSize && m_pbData) {')
+            print('    if (!disableCopies && _MappedSize && m_pbData) {')
             self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
             print('    }')
 
@@ -194,7 +194,7 @@ class DDrawTracer(DllTracer):
             print(r'    if (lpDDSD && (lpDDSD->dwFlags & (DDSD_LPSURFACE)) && lpDDSD->lpSurface) {')
             print(r'        _getMapInfo(_this, NULL, lpDDSD, m_pbData, _MappedSize);')
             print(r'        m_pbData = lpDDSD->lpSurface;')
-            print(r'        if (_MappedSize && m_pbData) {')
+            print(r'        if (!disableCopies && _MappedSize && m_pbData) {')
             self.emit_malloc('(LPBYTE)m_pbData', '_MappedSize')
             self.emit_memcpy('(LPBYTE)m_pbData', '_MappedSize')
             print(r'        }')
@@ -486,13 +486,13 @@ class DDrawTracer(DllTracer):
             print('    }')
 
         if interface.name.startswith('IDirectDrawSurface') and method.name == 'SetSurfaceDesc':
-            print(r'    if (lpDDSD && (lpDDSD->dwFlags & (DDSD_LPSURFACE)) && lpDDSD->lpSurface) {')
-            print(r'        if (_MappedSize && m_pbData) {')
+            print('    if (lpDDSD && (lpDDSD->dwFlags & (DDSD_LPSURFACE)) && lpDDSD->lpSurface) {')
+            print('        if (!disableCopies && _MappedSize && m_pbData) {')
             self.emit_free('(LPBYTE)m_pbData')
-            print(r'        }')
+            print('        }')
             print('        m_pbData = nullptr;')
             print('        _MappedSize = 0;')
-            print(r'    }')
+            print('    }')
 
 if __name__ == '__main__':
     print('#define INITGUID')

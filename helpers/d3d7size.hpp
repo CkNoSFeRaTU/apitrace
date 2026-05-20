@@ -290,23 +290,35 @@ _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
 
     UINT Width;
     UINT Height;
+    UINT Pitch = pDesc->dwFlags & DDSD_PITCH ? pDesc->lPitch : PACKED_PITCH;
     // Some games are sending non-NULL rects with garbage, especially on unlock.
     if (pRect) {
         Width  = pRect->right  - pRect->left;
         Height = pRect->bottom - pRect->top;
-    } else {
-        Width  = pDesc->dwWidth;
-        Height = pDesc->dwHeight;
-
+    } else if (pDesc->dwFlags & DDSD_LINEARSIZE) {
         // When destination rect isn't specified and we are looking for a size of entire surface and dwLinearSize is valid
         // then just use it and skip our own calculations. DXT1-5 go this route in most cases.
-        if (pDesc->dwFlags & DDSD_LINEARSIZE) {
-            MappedSize = pDesc->dwLinearSize;
+        MappedSize = pDesc->dwLinearSize;
+        return;
+    } else if ((pDesc->dwFlags & (DDSD_WIDTH|DDSD_HEIGHT)) == (DDSD_WIDTH|DDSD_HEIGHT)) {
+        Width  = pDesc->dwWidth;
+        Height = pDesc->dwHeight;
+    } else {
+        D desc;
+        ZeroMemory(&desc, sizeof(desc));
+        desc.dwSize = sizeof(desc);
+        if (FAILED(pSurface->GetSurfaceDesc(&desc)) || desc.dwFlags & (DDSD_HEIGHT|DDSD_WIDTH) != (DDSD_WIDTH|DDSD_HEIGHT)) {
+            os::log("failed to get surface width/height from GetSurfaceDesc");
             return;
         }
+
+        Width  = pDesc->dwWidth = desc.dwWidth;
+        Height = pDesc->dwHeight = desc.dwHeight;
+        if (desc.dwFlags & DDSD_PITCH)
+            Pitch  = pDesc->lPitch = desc.lPitch;
     }
 
-    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, pDesc->dwFlags & DDSD_PITCH ? pDesc->lPitch : PACKED_PITCH);
+    MappedSize = _getLockSize(&pDesc->ddpfPixelFormat, pRect, Width, Height, Pitch);
 }
 
 template<typename B>
