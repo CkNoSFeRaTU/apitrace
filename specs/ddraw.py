@@ -812,7 +812,7 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
     (DirectDrawPixelFormatFlags, "dwFlags"),
     (DirectDrawPixelFormatFourCC, "dwFourCC"),
 
-    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_ZBUFFER|DDPF_ALPHAPIXELS|DDPF_LUMINANCE|DDPF_BUMPDUDV|DDPF_D3DFORMAT))", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_ZBUFFER|DDPF_ALPHAPIXELS|DDPF_LUMINANCE|DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE|DDPF_D3DFORMAT))", [
         ("0", None, None),
         ("DDPF_RGB", DWORD, "dwRGBBitCount"),
         ("DDPF_RGB|DDPF_ALPHAPIXELS", DWORD, "dwRGBBitCount"),
@@ -821,13 +821,15 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
         ("DDPF_ALPHAPIXELS", DWORD, "dwAlphaBitDepth"),
         ("DDPF_LUMINANCE", DWORD, "dwLuminanceBitCount"),
         ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitCount"),
+        ("DDPF_BUMPLUMINANCE", DWORD, "dwLuminanceBitCount"),
         ("DDPF_BUMPDUDV", DWORD, "dwBumpBitCount"),
+        ("DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE", DWORD, "dwBumpBitCount"),
         # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
         # So this flag field doesn't suppose to be coming from applications.
         ("DDPF_D3DFORMAT", DWORD, "dwPrivateFormatBitCount"),
     ]), None),
 
-    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_ALPHAPIXELS|DDPF_BUMPLUMINANCE|DDPF_BUMPDUDV|DDPF_D3DFORMAT))", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_ALPHAPIXELS|DDPF_LUMINANCE|DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE|DDPF_D3DFORMAT))", [
         ("0", None, None),
         ("DDPF_ALPHAPIXELS", None, None),
         ("DDPF_RGB", DWORD, "dwRBitMask"),
@@ -838,6 +840,7 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
         ("DDPF_LUMINANCE|DDPF_ALPHAPIXELS", DWORD, "dwLuminanceBitMask"),
         ("DDPF_BUMPLUMINANCE", DWORD, "dwLuminanceBitMask"),
         ("DDPF_BUMPDUDV", DWORD, "dwBumpDuBitMask"),
+        ("DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE", DWORD, "dwBumpDuBitMask"),
         # DDPF_D3DFORMAT is supposedly defined in ddrawi.h which is a part of Windows Device Driver Reference.
         # So this flag field doesn't suppose to be coming from applications.
         ("DDPF_D3DFORMAT", DWORD, "dwOperations"),
@@ -859,12 +862,14 @@ DDPIXELFORMAT = Struct("DDPIXELFORMAT", [
         #]), "MultiSampleCaps"),
     ]), None),
 
-    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_BUMPLUMINANCE))", [
+    (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_STENCILBUFFER|DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE))", [
         ("0", None, None),
         ("DDPF_RGB", DWORD, "dwBBitMask"),
         ("DDPF_YUV", DWORD, "dwVBitMask"),
         ("DDPF_STENCILBUFFER", DWORD, "dwStencilBitMask"),
         ("DDPF_BUMPLUMINANCE", DWORD, "dwBumpLuminanceBitMask"),
+        ("DDPF_BUMPDUDV", DWORD, "dwBumpLuminanceBitMask"),
+        ("DDPF_BUMPDUDV|DDPF_BUMPLUMINANCE", DWORD, "dwBumpLuminanceBitMask"),
     ]), None),
 
     (Union("({self}.dwFlags & (DDPF_RGB|DDPF_YUV|DDPF_LUMINANCE|DDPF_ALPHAPIXELS|DDPF_ZBUFFER))", [
