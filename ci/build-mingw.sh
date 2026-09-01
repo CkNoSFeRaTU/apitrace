@@ -18,6 +18,7 @@ do
             -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=$PWD/cmake/toolchain/$target.cmake \
             -C dxsdk-master/Cache-mingw32.cmake \
+            -C glidesdk-master/Cache-mingw32.cmake \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
             -DENABLE_GUI=NO

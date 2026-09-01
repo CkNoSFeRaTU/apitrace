@@ -308,6 +308,24 @@ class AttribArray(Type):
     def visit(self, visitor, *args, **kwargs):
         return visitor.visitAttribArray(self, *args, **kwargs)
 
+class PointersArray(Type):
+
+    def __init__(self, type_, length):
+        Type.__init__(self, type_.expr)
+        self.type = type_
+        self.length = length
+        if not isinstance(length, int):
+            assert isinstance(length, str)
+            # Check if length is actually a valid constant expression
+            try:
+                eval(length, {}, {})
+            except:
+                pass
+            else:
+                raise ValueError("length %r should be an integer" % length)
+
+    def visit(self, visitor, *args, **kwargs):
+        return visitor.visitPointersArray(self, *args, **kwargs)
 
 class Blob(Type):
 
@@ -385,7 +403,7 @@ def InOut(type, name):
 
 class Function:
 
-    def __init__(self, type, name, args, call = '', fail = None, sideeffects=True, internal=False, overloaded=False, throw=''):
+    def __init__(self, type, name, args, call = '', decoration = None, fail = None, sideeffects=True, internal=False, overloaded=False, throw=''):
         self.type = type
         self.name = name
 
@@ -404,6 +422,7 @@ class Function:
             self.args.append(arg)
 
         self.call = call
+        self.decoration = decoration
         self.fail = fail
         self.sideeffects = sideeffects
         self.internal = internal
@@ -460,6 +479,11 @@ class Function:
 
 def StdFunction(*args, **kwargs):
     kwargs.setdefault('call', '__stdcall')
+    return Function(*args, **kwargs)
+
+def StdDecoratedFunction(decoration, *args, **kwargs):
+    kwargs.setdefault('call', '__stdcall')
+    kwargs.setdefault('decoration', decoration)
     return Function(*args, **kwargs)
 
 
@@ -638,6 +662,9 @@ class Visitor:
     def visitAttribArray(self, array, *args, **kwargs):
         raise NotImplementedError
 
+    def visitPointersArray(self, array, *args, **kwargs):
+        raise NotImplementedError
+
     def visitBlob(self, blob, *args, **kwargs):
         raise NotImplementedError
 
@@ -729,6 +756,10 @@ class Rebuilder(Visitor):
     def visitAttribArray(self, array):
         type = self.visit(array.baseType)
         return AttribArray(type, array.valueTypes, array.terminator)
+
+    def visitPointersArray(self, array):
+        type = self.visit(array.type)
+        return PointersArray(type, array.length)
 
     def visitBlob(self, blob):
         type = self.visit(blob.type)
@@ -850,6 +881,9 @@ class Traverser(Visitor):
         for key, valueType in attribs.valueTypes:
             if valueType is not None:
                 self.visit(valueType, *args, **kwargs)
+
+    def visitPointersArray(self, array, *args, **kwargs):
+        self.visit(array.type, *args, **kwargs)
 
     def visitBlob(self, array, *args, **kwargs):
         pass

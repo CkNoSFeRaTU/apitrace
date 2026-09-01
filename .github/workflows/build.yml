@@ -25,11 +25,12 @@ jobs:
           *qttools-*.7z
         key: ${{ runner.os }}-${{ matrix.target }}-${{ matrix.arch }}-5.15.2-1
     - name: Build
-      run: .\ci\build-msvc.ps1 -arch ${{ matrix.arch }} -target ${{ matrix.target }} -config RelWithDebInfo
+      run: |
+          .\ci\build-msvc.ps1 -arch ${{ matrix.arch }} -target ${{ matrix.target }} -config RelWithDebInfo
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: apitraceddraw-${{ matrix.target }}.7z
+        name: apitraceretro-${{ matrix.target }}.7z
         path: build/apitrace-*.7z
         if-no-files-found: error
         archive: false
@@ -46,15 +47,16 @@ jobs:
         submodules: recursive
     - name: Dependencies
       run: |
-           sudo apt-get update
-           sudo apt-get install -qq -y --no-install-recommends g++-mingw-w64-i686 g++-mingw-w64-x86-64 ninja-build cmake
-           wget -q -O - https://github.com/apitrace/dxsdk/archive/master.tar.gz | tar -xz
+          sudo apt-get update
+          sudo apt-get install -qq -y --no-install-recommends g++-mingw-w64-i686 g++-mingw-w64-x86-64 ninja-build cmake
+          wget -q -O - https://github.com/apitrace/dxsdk/archive/master.tar.gz | tar -xz
+          wget -q -O - https://github.com/CkNoSFeRaTU/glidesdk/archive/master.tar.gz | tar -xz
     - name: Build
       run: ci/build-mingw.sh ${{ matrix.target }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: apitraceddraw-${{ matrix.target }}.7z
+        name: apitraceretro-${{ matrix.target }}.7z
         path: build/${{ matrix.target }}/apitrace-*.7z
         if-no-files-found: error
         archive: false

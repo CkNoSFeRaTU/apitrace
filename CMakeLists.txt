@@ -224,6 +224,10 @@ if (WIN32)
         endif ()
     endif ()
 
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        find_package (Glide)
+    endif ()
+
     set (ENABLE_EGL false)
 elseif (APPLE)
     set (ENABLE_EGL false)

@@ -74,12 +74,21 @@ executeRetrace(const std::vector<const char *> & opts,
         retraceName = "eglretrace";
         break;
     case trace::API_DX:
-    case trace::API_D3D7:
+    case trace::API_DDRAW:
     case trace::API_D3D8:
     case trace::API_D3D9:
     case trace::API_DXGI:
         // Use prefix so that it can be used with WINE
         retraceName = "d3dretrace.exe";
+        break;
+    case trace::API_GLIDE1X:
+        retraceName = "glide1xretrace.exe";
+        break;
+    case trace::API_GLIDE2X:
+        retraceName = "glide2xretrace.exe";
+        break;
+    case trace::API_GLIDE3X:
+        retraceName = "glide3xretrace.exe";
         break;
     default:
         std::cerr << "warning: could not guess trace's API\n";

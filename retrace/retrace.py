@@ -74,6 +74,9 @@ class ValueAllocator(stdapi.Visitor):
     def visitAttribArray(self, array, lvalue, rvalue):
         print('    %s = _allocator.allocArray<%s>(&%s);' % (lvalue, array.baseType, rvalue))
 
+    def visitPointersArray(self, array, lvalue, rvalue):
+        print('    %s = _allocator.allocArray<%s>(&%s);' % (lvalue, array.type, rvalue))
+
     def visitPointer(self, pointer, lvalue, rvalue):
         print('    %s = _allocator.allocArray<%s>(&%s);' % (lvalue, pointer.type, rvalue))
 
@@ -175,7 +178,25 @@ class ValueDeserializer(stdapi.Visitor, stdapi.ExpanderMixin):
         finally:
             print('        }')
             print('    }')
-    
+
+    def visitPointersArray(self, array, lvalue, rvalue):
+        tmp = '_a_' + array.tag + '_' + str(self.seq)
+        self.seq += 1
+
+        print('    const trace::Array *%s = (%s).toArray();' % (tmp, rvalue))
+        print('    if (%s) {' % (tmp,))
+
+        print('        void **%s_elems = (void **)%s;' % (lvalue, lvalue))
+        length = '%s->values.size()' % (tmp,)
+
+        index = '_j' + array.tag
+        print('        for (size_t {i} = 0; {i} < {length}; ++{i}) {{'.format(i = index, length = length))
+        try:
+            self.visit(array.type, '%s_elems[%s]' % (lvalue, index), '*%s->values[%s]' % (tmp, index))
+        finally:
+            print('        }')
+            print('    }')
+
     def visitPointer(self, pointer, lvalue, rvalue):
         tmp = '_a_' + pointer.tag + '_' + str(self.seq)
         self.seq += 1
@@ -332,7 +353,19 @@ class SwizzledValueRegistrator(stdapi.Visitor, stdapi.ExpanderMixin):
             self.visit(pointer.type, '%s[0]' % (lvalue,), '*_a%s->values[0]' % (pointer.tag,))
         finally:
             print('    }')
-    
+
+    def visitPointersArray(self, array, lvalue, rvalue):
+        print('    const trace::Array *_a%s = (%s).toArray();' % (array.tag, rvalue))
+        print('    if (_a%s) {' % (array.tag))
+        length = '_a%s->values.size()' % array.tag
+        index = '_j' + array.tag
+        print('        for (size_t {i} = 0; {i} < {length}; ++{i}) {{'.format(i = index, length = length))
+        try:
+            self.visit(array.type, '%s[%s]' % (lvalue, index), '*_a%s->values[%s]' % (array.tag, index))
+        finally:
+            print('        }')
+            print('    }')
+
     def visitIntPointer(self, pointer, lvalue, rvalue):
         pass
     

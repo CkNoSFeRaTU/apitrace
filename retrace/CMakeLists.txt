@@ -364,3 +364,103 @@ if (WIN32)
     install (TARGETS d3dretrace RUNTIME DESTINATION bin)
     install_pdb (d3dretrace DESTINATION bin)
 endif ()
+
+if (Glide_1X_INCLUDE_FOUND)
+    add_custom_command (
+        OUTPUT glide1xretrace.cpp
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide1xretrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide1xretrace.cpp
+        DEPENDS
+            glide1xretrace.py
+            retrace.py
+            ${CMAKE_SOURCE_DIR}/specs/glide1x.py
+            ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+    )
+
+    add_executable (glide1xretrace
+        glidecommon.cpp
+        glidestate_tmu.cpp
+        glidestate_tmu_buffer.cpp
+        glideretrace_misc.cpp
+        glide1xretrace_main.cpp
+        glide1xretrace.cpp
+        glide1xstate.cpp
+        glide1xstate_images.cpp
+        glideretrace_ws.cpp
+    )
+    target_compile_definitions(glide1xretrace PRIVATE
+        GLIDE1X
+    )
+    target_include_directories (glide1xretrace PRIVATE ${Glide_1X_INCLUDE_DIR})
+    target_link_libraries (glide1xretrace
+        retrace_common
+    )
+    install (TARGETS glide1xretrace RUNTIME DESTINATION bin)
+    install_pdb (glide1xretrace DESTINATION bin)
+endif ()
+
+if (Glide_2X_INCLUDE_FOUND)
+    add_custom_command (
+        OUTPUT glide2xretrace.cpp
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide2xretrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide2xretrace.cpp
+        DEPENDS
+            glide2xretrace.py
+            retrace.py
+            ${CMAKE_SOURCE_DIR}/specs/glide2x.py
+            ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+    )
+
+    add_executable (glide2xretrace
+        glidecommon.cpp
+        glidestate_tmu.cpp
+        glidestate_tmu_buffer.cpp
+        glideretrace_misc.cpp
+        glide2xretrace_main.cpp
+        glide2xretrace.cpp
+        glide2xstate.cpp
+        glide2xstate_images.cpp
+        glideretrace_ws.cpp
+    )
+    target_compile_definitions(glide2xretrace PRIVATE
+        GLIDE2X
+    )
+    target_include_directories (glide2xretrace PRIVATE ${Glide_2X_INCLUDE_DIR})
+    target_link_libraries (glide2xretrace
+        retrace_common
+    )
+    install (TARGETS glide2xretrace RUNTIME DESTINATION bin)
+    install_pdb (glide2xretrace DESTINATION bin)
+endif ()
+
+if (Glide_3X_INCLUDE_FOUND)
+    add_custom_command (
+        OUTPUT glide3xretrace.cpp
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide3xretrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide3xretrace.cpp
+        DEPENDS
+            glide3xretrace.py
+            retrace.py
+            ${CMAKE_SOURCE_DIR}/specs/glide3x.py
+            ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+    )
+
+    add_executable (glide3xretrace
+        glidecommon.cpp
+        glidestate_tmu.cpp
+        glidestate_tmu_buffer.cpp
+        glideretrace_misc.cpp
+        glide3xretrace_main.cpp
+        glide3xretrace.cpp
+        glide3xstate.cpp
+        glide3xstate_images.cpp
+        glideretrace_ws.cpp
+    )
+    target_compile_definitions(glide3xretrace PRIVATE
+        GLIDE3X
+    )
+    target_include_directories (glide3xretrace PRIVATE ${Glide_3X_INCLUDE_DIR})
+    target_link_libraries (glide3xretrace
+        retrace_common
+    )
+
+    install (TARGETS glide3xretrace RUNTIME DESTINATION bin)
+    install_pdb (glide3xretrace DESTINATION bin)
+endif ()

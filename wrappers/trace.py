@@ -101,6 +101,9 @@ class ComplexValueSerializer(stdapi.OnceVisitor):
     def visitAttribArray(self, array):
         pass
 
+    def visitPointersArray(self, array):
+        self.visit(array.type)
+
     def visitBlob(self, array):
         pass
 
@@ -286,6 +289,23 @@ class ValueSerializer(stdapi.Visitor, stdapi.ExpanderMixin):
         print('    trace::localWriter.endArray();')
         print('    }')
 
+    def visitPointersArray(self, array, instance):
+        length = '_c' + array.type.tag
+        index = '_i' + array.type.tag
+        array_length = self.expand(array.length)
+        print('    if (%s) {' % instance)
+        print('        void **%s_elems = (void **)%s;' % (instance, instance))
+        print('        size_t %s = %s > 0 ? %s : 0;' % (length, array_length, array_length))
+        print('        trace::localWriter.beginArray(%s);' % length)
+        print('        for (size_t %s = 0; %s < %s; ++%s) {' % (index, index, length, index))
+        print('            trace::localWriter.beginElement();')
+        self.visitElement(index, array.type, '(%s_elems)[%s]' % (instance, index))
+        print('            trace::localWriter.endElement();')
+        print('        }')
+        print('        trace::localWriter.endArray();')
+        print('    } else {')
+        print('        trace::localWriter.writeNull();')
+        print('    }')
 
     def visitBlob(self, blob, instance):
         print('    trace::localWriter.writeBlob(%s, %s);' % (instance, self.expand(blob.size)))
@@ -598,14 +618,20 @@ class Tracer:
         print('}')
         print()
 
-    def traceFunctionImplBody(self, function):
+    def traceFunctionImplBody(self, function, resultOverride = None, callFlags = "trace::FLAG_NONE"):
         if not function.internal:
-            print('    unsigned _call = trace::localWriter.beginEnter(&_%s_sig);' % (function.name,))
+            print('    unsigned _call = trace::localWriter.beginEnter(&_%s_sig, %s);' % (function.name, callFlags))
             for arg in function.args:
                 if not arg.output:
                     self.serializeArg(function, arg)
             print('    trace::localWriter.endEnter();')
-        self.invokeFunction(function)
+        # If a resultOverride is specified, do not invoke the
+        # method. Log the call and return the given result.
+        resultVariable = "_result"
+        if resultOverride is None:
+            self.invokeFunction(function)
+        else:
+            resultVariable = resultOverride
         if not function.internal:
             print('    trace::localWriter.beginLeave(_call);')
             print('    if (%s) {' % self.wasFunctionSuccessful(function))
@@ -615,9 +641,9 @@ class Tracer:
                     self.wrapArg(function, arg)
             print('    }')
             if function.type is not stdapi.Void:
-                self.serializeRet(function, "_result")
+                self.serializeRet(function, resultVariable)
             if function.type is not stdapi.Void:
-                self.wrapRet(function, "_result")
+                self.wrapRet(function, resultVariable)
             print('    trace::localWriter.endLeave();')
 
     def invokeFunction(self, function):

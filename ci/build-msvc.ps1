@@ -3,7 +3,8 @@ param (
     [ValidateSet('win64','win32')][string]$target = 'win64',
     [string]$config,
     [string]$buildRoot = 'build',
-    [string]$qtRoot = 'Qt'
+    [string]$qtRoot = 'Qt',
+    [string]$sdkRoot = 'sdk'
 )
 
 # https://stackoverflow.com/a/48999101
@@ -67,7 +68,7 @@ if ($arch -eq 'x86') {
                         }
                         else {
                             throw $_
-                                                                                    }
+                        }
                     }
                 } while ($retry)
             }
@@ -80,6 +81,29 @@ if ($arch -eq 'x86') {
     $qtBinPath = Resolve-Path "$qtToolchainPath\bin"
     Write-Host "Adding $qtBinPath to environment path."
     $Env:Path = "$qtBinPath;$Env:Path"
+
+    $glidesdkUrl = "https://github.com/CkNoSFeRaTU/glidesdk/archive/master.zip"
+    $glidesdkFile = "glidesdk.tar.gz"
+
+    Write-Host "Downloading $glidesdkUrl ..."
+    do {
+        try {
+            Invoke-WebRequest -Uri $glidesdkUrl -OutFile $glidesdkFile -UserAgent NativeHost
+            $retry = $false
+        }
+        catch {
+            if (($_.Exception.GetType() -match "HttpResponseException") -and ($_.Exception -match "302")) {
+                $glidesdkUrl = $_.Exception.Response.Headers.Location.AbsoluteUri
+                Write-Host "Redirected to $glidesdkUrl ..."
+                $retry = $true
+            }
+            else {
+                throw $_
+            }
+        }
+    } while ($retry)
+    Write-Host "Extracting $glidesdkFile..."
+    Exec { 7z x -y "-o$sdkRoot" $glidesdkFile | Out-Null }
 
     $gui = 'ON'
 } else {
@@ -109,7 +133,7 @@ if (!$config) {
 }
 
 Write-Host "Configuring onto $buildRoot ..."
-Exec { cmake "-S." "-B$buildRoot" -G $generator -A $toolset "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" "-DCMAKE_PREFIX_PATH=$qtToolchainPath" "-DENABLE_GUI=$gui" }
+Exec { cmake "-S." "-B$buildRoot" -G $generator -A $toolset -C "$sdkRoot/glidesdk-master/Cache-msvc32.cmake" "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" "-DCMAKE_PREFIX_PATH=$qtToolchainPath" "-DENABLE_GUI=$gui" }
 
 Write-Host "Building ..."
 Exec { cmake --build $buildRoot --config $config --target ALL_BUILD --target check --target package "--" /verbosity:minimal /maxcpucount }

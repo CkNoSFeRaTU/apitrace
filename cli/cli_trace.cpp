@@ -120,7 +120,7 @@ traceProgram(trace::API api,
         break;
 #endif
 #ifdef _WIN32
-    case trace::API_D3D7:
+    case trace::API_DDRAW:
         wrapperFilename = "ddraw.dll";
         break;
     case trace::API_D3D8:
@@ -138,6 +138,15 @@ traceProgram(trace::API api,
         useInject = true;
         break;
 #endif
+    case trace::API_GLIDE1X:
+        wrapperFilename = "glide1x.dll";
+        break;
+    case trace::API_GLIDE2X:
+        wrapperFilename = "glide2x.dll";
+        break;
+    case trace::API_GLIDE3X:
+        wrapperFilename = "glide3x.dll";
+        break;
     default:
         std::cerr << "error: unsupported API\n";
         return 1;
@@ -341,9 +350,9 @@ usage(void)
         "    -v, --verbose       verbose output\n"
         "    -a, --api=API       specify API to trace: "
 #ifdef _WIN32
-                                                      "gl, d3d7, d3d8, d3d9, or dxgi (for d3d10 and higher)"
+                                                      "gl, glide2x, glide3x, ddraw, d3d8, d3d9, or dxgi (for d3d10 and higher)"
 #else
-                                                      "gl (for glx or cgl) or egl"
+                                                      "gl (for glx or cgl), glide2x, glide3x or egl"
 #endif
                                                       ";\n"
         "                        default is `gl`\n"
@@ -405,9 +414,11 @@ command(int argc, char *argv[])
             } else if (strcmp(optarg, "egl") == 0) {
                 api = trace::API_EGL;
             } else if (strcmp(optarg, "ddraw") == 0 ||
+                       strcmp(optarg, "d3d3") == 0 ||
+                       strcmp(optarg, "d3d5") == 0 ||
                        strcmp(optarg, "d3d6") == 0 ||
                        strcmp(optarg, "d3d7") == 0) {
-                api = trace::API_D3D7;
+                api = trace::API_DDRAW;
             } else if (strcmp(optarg, "d3d8") == 0) {
                 api = trace::API_D3D8;
             } else if (strcmp(optarg, "d3d9") == 0) {
@@ -421,6 +432,12 @@ command(int argc, char *argv[])
             } else if (strcmp(optarg, "d2d") == 0 ||
                        strcmp(optarg, "d2d1") == 0) {
                 api = trace::API_D2D1;
+            } else if (strcmp(optarg, "glide1x") == 0) {
+                api = trace::API_GLIDE1X;
+            } else if (strcmp(optarg, "glide2x") == 0) {
+                api = trace::API_GLIDE2X;
+            } else if (strcmp(optarg, "glide3x") == 0) {
+                api = trace::API_GLIDE3X;
             } else {
                 std::cerr << "error: unknown API `" << optarg << "`\n";
                 usage();

@@ -1,3 +1,11 @@
+About **repository**
+==================
+
+This repository contains a fork of [apitrace](https://github.com/apitrace/apitrace)
+with not yet upstreamed changes for support of now legacy and considered retro API.
+Those are DirectDraw, Direct3D2 - Direct3D7, 3Dfx Glide 2.0 - 3.1.
+
+
 About **apitrace**
 ==================
 

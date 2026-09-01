@@ -42,6 +42,7 @@
 #include <malloc.h> // _get_heap_handle
 #include <new.h>
 #include <windows.h>
+#define PSAPI_VERSION 1
 #include <psapi.h>
 #endif
 

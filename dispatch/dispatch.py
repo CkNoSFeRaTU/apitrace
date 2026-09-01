@@ -106,7 +106,7 @@ class Dispatcher:
         pvalue = function_pointer_value(function)
         getProcAddressName = self.getProcAddressName(module, function)
         print('    %s _ptr;' % (ptype,))
-        print('    _ptr = (%s)%s("%s");' % (ptype, getProcAddressName, function.name))
+        print('    _ptr = (%s)%s("%s");' % (ptype, getProcAddressName, function.name if function.decoration is None else function.decoration))
         print('    if (!_ptr) {')
         print('        _ptr = &%s;' % ('_fail_' + function.name))
         print('    }')

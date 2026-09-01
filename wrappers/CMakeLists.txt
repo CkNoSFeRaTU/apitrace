@@ -374,6 +374,96 @@ if (WIN32)
     install (TARGETS wgltrace LIBRARY DESTINATION ${WRAPPER_INSTALL_DIR})
     install_pdb (wgltrace DESTINATION ${WRAPPER_INSTALL_DIR})
 
+    # glide.dll
+    if (Glide_1X_INCLUDE_FOUND)
+        add_custom_command (
+            OUTPUT glide1xtrace.cpp
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide1xtrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide1xtrace.cpp
+            DEPENDS
+                glide1xtrace.py
+                dlltrace.py
+                trace.py
+                ${CMAKE_SOURCE_DIR}/dispatch/dispatch.py
+                ${CMAKE_SOURCE_DIR}/specs/glide1x.py
+                ${CMAKE_SOURCE_DIR}/specs/winapi.py
+                ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+        )
+        add_library (glide1xtrace SHARED glide1x.def glide1xtrace.cpp)
+        target_include_directories (glide1xtrace PRIVATE ${Glide_1X_INCLUDE_DIR})
+        target_link_libraries (glide1xtrace
+            trace
+        )
+        set_target_properties (glide1xtrace PROPERTIES
+            PREFIX ""
+            OUTPUT_NAME glide
+        )
+        target_compile_definitions(glide1xtrace PRIVATE
+            GLIDE1X
+        )
+        install (TARGETS glide1xtrace LIBRARY RUNTIME DESTINATION ${WRAPPER_INSTALL_DIR})
+        install_pdb (glide1xtrace DESTINATION ${WRAPPER_INSTALL_DIR})
+    endif ()
+
+    # glide2x.dll
+    if (Glide_2X_INCLUDE_FOUND)
+        add_custom_command (
+            OUTPUT glide2xtrace.cpp
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide2xtrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide2xtrace.cpp
+            DEPENDS
+                glide2xtrace.py
+                dlltrace.py
+                trace.py
+                ${CMAKE_SOURCE_DIR}/dispatch/dispatch.py
+                ${CMAKE_SOURCE_DIR}/specs/glide2x.py
+                ${CMAKE_SOURCE_DIR}/specs/winapi.py
+                ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+        )
+        add_library (glide2xtrace SHARED glide2x.def glide2xtrace.cpp)
+        target_include_directories (glide2xtrace PRIVATE ${Glide_2X_INCLUDE_DIR})
+        target_link_libraries (glide2xtrace
+            trace
+        )
+        set_target_properties (glide2xtrace PROPERTIES
+            PREFIX ""
+            OUTPUT_NAME glide2x
+        )
+        target_compile_definitions(glide2xtrace PRIVATE
+            GLIDE2X
+        )
+        install (TARGETS glide2xtrace LIBRARY RUNTIME DESTINATION ${WRAPPER_INSTALL_DIR})
+        install_pdb (glide2xtrace DESTINATION ${WRAPPER_INSTALL_DIR})
+    endif ()
+
+    # glide3x.dll
+    if (Glide_3X_INCLUDE_FOUND)
+        add_custom_command (
+            OUTPUT glide3xtrace.cpp
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/glide3xtrace.py > ${CMAKE_CURRENT_BINARY_DIR}/glide3xtrace.cpp
+            DEPENDS
+                glide3xtrace.py
+                dlltrace.py
+                trace.py
+                ${CMAKE_SOURCE_DIR}/dispatch/dispatch.py
+                ${CMAKE_SOURCE_DIR}/specs/glide3x.py
+                ${CMAKE_SOURCE_DIR}/specs/winapi.py
+                ${CMAKE_SOURCE_DIR}/specs/stdapi.py
+        )
+        add_library (glide3xtrace SHARED glide3x.def glide3xtrace.cpp)
+        target_include_directories (glide3xtrace PRIVATE ${Glide_3X_INCLUDE_DIR})
+        target_link_libraries (glide3xtrace
+            trace
+        )
+        set_target_properties (glide3xtrace PROPERTIES
+            PREFIX ""
+            OUTPUT_NAME glide3x
+        )
+        target_compile_definitions(glide3xtrace PRIVATE
+            GLIDE3X
+        )
+        install (TARGETS glide3xtrace LIBRARY RUNTIME DESTINATION ${WRAPPER_INSTALL_DIR})
+        install_pdb (glide3xtrace DESTINATION ${WRAPPER_INSTALL_DIR})
+    endif ()
+
 elseif (APPLE)
     # OpenGL framework
     add_custom_command (

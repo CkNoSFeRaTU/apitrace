@@ -362,7 +362,7 @@ void Retracer::run()
         prog = QLatin1String("eglretrace");
         break;
     case trace::API_DX:
-    case trace::API_D3D7:
+    case trace::API_DDRAW:
     case trace::API_D3D8:
     case trace::API_D3D9:
     case trace::API_DXGI:
@@ -371,6 +371,30 @@ void Retracer::run()
 #else
         prog = QLatin1String("wine");
         arguments << QLatin1String("d3dretrace.exe");
+#endif
+    case trace::API_GLIDE:
+    case trace::API_GLIDE1X:
+#ifdef Q_OS_WIN
+        prog = QLatin1String("glide1xretrace");
+#else
+        prog = QLatin1String("wine");
+        arguments << QLatin1String("glide1xretrace.exe");
+#endif
+        break;
+    case trace::API_GLIDE2X:
+#ifdef Q_OS_WIN
+        prog = QLatin1String("glide2xretrace");
+#else
+        prog = QLatin1String("wine");
+        arguments << QLatin1String("glide2xretrace.exe");
+#endif
+        break;
+    case trace::API_GLIDE3X:
+#ifdef Q_OS_WIN
+        prog = QLatin1String("glide3xretrace");
+#else
+        prog = QLatin1String("wine");
+        arguments << QLatin1String("glide3xretrace.exe");
 #endif
         break;
     default:
