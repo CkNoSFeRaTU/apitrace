@@ -282,7 +282,7 @@ glide1x.addFunctions([
     StdDecoratedFunction("_grLfbWriteMode@4", Void, "grLfbWriteMode", [(GrLfbWriteMode_t, "mode")]),
     StdDecoratedFunction("_grRenderBuffer@4", Void, "grRenderBuffer", [(GrBuffer_t, "buffer")]),
     StdDecoratedFunction("_grResetTriStats@0", Void, "grResetTriStats", []),
-    StdDecoratedFunction("_grSplash@20", Void, "grSplash", []),
+    StdDecoratedFunction("_grSplash@0", Void, "grSplash", []),
     StdDecoratedFunction("_grSstConfigPipeline@12", Void, "grSstConfigPipeline", [(GrChipID_t, "chip"), (GrSstRegister, "reg"), (FxU32, "value")]),
     StdDecoratedFunction("_grSstDetectResources@0", Void, "grSstDetectResources", []),
     StdDecoratedFunction("_grSstIdle@0", Void, "grSstIdle", []),

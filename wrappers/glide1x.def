@@ -63,7 +63,7 @@ EXPORTS
     _grLfbWriteMode@4 = _grLfbWriteMode@4
     _grRenderBuffer@4 = _grRenderBuffer@4
     _grResetTriStats@0 = _grResetTriStats@0
-    _grSplash@20 = _grSplash@20
+    _grSplash@0 = _grSplash@0
     _grSstConfigPipeline@12 = _grSstConfigPipeline@12
     _grSstDetectResources@0 = _grSstDetectResources@0
     _grSstIdle@0 = _grSstIdle@0
