@@ -284,11 +284,11 @@ Parser::parse_function_sig(void) {
                          (n[1] == '3' && n[2] == 'D'))) || // D3D*
                        (n[0] == 'C' && n[1] == 'r' && n[2] == 'e' && n[3] == 'a' && n[4] == 't' && n[5] == 'e')) { // Create*
                 api = trace::API_DX;
-            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '1' && n[6] == 'x') { // Glide1X fake call
+            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '1' && n[6] == 'X') { // Glide1X fake call
                 api = trace::API_GLIDE1X;
-            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '2' && n[6] == 'x') { // Glide2X fake call
+            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '2' && n[6] == 'X') { // Glide2X fake call
                 api = trace::API_GLIDE2X;
-            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '3' && n[6] == 'x') { // Glide3X fake call
+            } else if (n[0] == 'G' && n[1] == 'l' && n[2] == 'i' && n[3] == 'd' && n[4] == 'e' && n[5] == '3' && n[6] == 'X') { // Glide3X fake call
                 api = trace::API_GLIDE3X;
             } else {
                 /* TODO */

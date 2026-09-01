@@ -307,7 +307,7 @@ _getMapInfo(S* pSurface, RECT * pRect, D* pDesc,
         D desc;
         ZeroMemory(&desc, sizeof(desc));
         desc.dwSize = sizeof(desc);
-        if (FAILED(pSurface->GetSurfaceDesc(&desc)) || desc.dwFlags & (DDSD_HEIGHT|DDSD_WIDTH) != (DDSD_WIDTH|DDSD_HEIGHT)) {
+        if (FAILED(pSurface->GetSurfaceDesc(&desc)) || (desc.dwFlags & (DDSD_HEIGHT|DDSD_WIDTH)) != (DDSD_WIDTH|DDSD_HEIGHT)) {
             os::log("failed to get surface width/height from GetSurfaceDesc");
             return;
         }
