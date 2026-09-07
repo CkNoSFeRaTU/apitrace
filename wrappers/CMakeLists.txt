@@ -388,7 +388,12 @@ if (WIN32)
                 ${CMAKE_SOURCE_DIR}/specs/winapi.py
                 ${CMAKE_SOURCE_DIR}/specs/stdapi.py
         )
-        add_library (glide1xtrace SHARED glide1x.def glide1xtrace.cpp)
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+            set(GLIDE_DEF glide1x-msvc.def)
+        else ()
+            set(GLIDE_DEF glide1x.def)
+        endif ()
+        add_library (glide1xtrace SHARED ${GLIDE_DEF} glide1xtrace.cpp)
         target_include_directories (glide1xtrace PRIVATE ${Glide_1X_INCLUDE_DIR})
         target_link_libraries (glide1xtrace
             trace
@@ -418,7 +423,12 @@ if (WIN32)
                 ${CMAKE_SOURCE_DIR}/specs/winapi.py
                 ${CMAKE_SOURCE_DIR}/specs/stdapi.py
         )
-        add_library (glide2xtrace SHARED glide2x.def glide2xtrace.cpp)
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+            set(GLIDE_DEF glide2x-msvc.def)
+        else ()
+            set(GLIDE_DEF glide2x.def)
+        endif ()
+        add_library (glide2xtrace SHARED ${GLIDE_DEF} glide2xtrace.cpp)
         target_include_directories (glide2xtrace PRIVATE ${Glide_2X_INCLUDE_DIR})
         target_link_libraries (glide2xtrace
             trace
@@ -448,7 +458,12 @@ if (WIN32)
                 ${CMAKE_SOURCE_DIR}/specs/winapi.py
                 ${CMAKE_SOURCE_DIR}/specs/stdapi.py
         )
-        add_library (glide3xtrace SHARED glide3x.def glide3xtrace.cpp)
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+            set(GLIDE_DEF glide3x-msvc.def)
+        else ()
+            set(GLIDE_DEF glide3x.def)
+        endif ()
+        add_library (glide3xtrace SHARED ${GLIDE_DEF} glide3xtrace.cpp)
         target_include_directories (glide3xtrace PRIVATE ${Glide_3X_INCLUDE_DIR})
         target_link_libraries (glide3xtrace
             trace
