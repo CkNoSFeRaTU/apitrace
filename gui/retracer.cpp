@@ -372,6 +372,7 @@ void Retracer::run()
         prog = QLatin1String("wine");
         arguments << QLatin1String("d3dretrace.exe");
 #endif
+        break;
     case trace::API_GLIDE:
     case trace::API_GLIDE1X:
 #ifdef Q_OS_WIN

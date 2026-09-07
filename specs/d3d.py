@@ -179,28 +179,28 @@ LPDIRECT3DVERTEXBUFFER7 = ObjPointer(IDirect3DVertexBuffer7)
 
 IDirect3D.methods += [
     StdMethod(HRESULT, "Initialize", [(REFCLSID, "riid")]),
-    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
+    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK2, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
     StdMethod(HRESULT, "CreateLight", [Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateMaterial", [Out(Pointer(LPDIRECT3DMATERIAL), "lplpDirect3DMaterial"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateViewport", [Out(Pointer(LPDIRECT3DVIEWPORT), "lplpD3DViewport"), (LPUNKNOWN, "pUnkOuter")]),
-    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT, "lplpD3DDevice")]),
+    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT2, "lplpD3DDevice")]),
 ]
 
 IDirect3D2.methods += [
-    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
+    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK5, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
     StdMethod(HRESULT, "CreateLight", [Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateMaterial", [Out(Pointer(LPDIRECT3DMATERIAL2), "lplpDirect3DMaterial2"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateViewport", [Out(Pointer(LPDIRECT3DVIEWPORT2), "lplpD3DViewport2"), (LPUNKNOWN, "pUnkOuter")]),
-    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT, "lpD3DFDR")]),
+    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT5, "lpD3DFDR")]),
     StdMethod(HRESULT, "CreateDevice", [(REFCLSID, "rclsid"), (LPDIRECTDRAWSURFACE, "lpDDS"), Out(Pointer(LPDIRECT3DDEVICE2), "lplpD3DDevice2")]),
 ]
 
 IDirect3D3.methods += [
-    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
+    StdMethod(HRESULT, "EnumDevices", [(LPD3DENUMDEVICESCALLBACK6, "lpEnumDevicesCallback"), (LPVOID, "lpUserArg")], sideeffects=False),
     StdMethod(HRESULT, "CreateLight", [Out(Pointer(LPDIRECT3DLIGHT), "lplpDirect3DLight"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateMaterial", [Out(Pointer(LPDIRECT3DMATERIAL3), "lplpDirect3DMaterial3"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "CreateViewport", [Out(Pointer(LPDIRECT3DVIEWPORT3), "lplpD3DViewport3"), (LPUNKNOWN, "pUnkOuter")]),
-    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT, "lpD3DFDR")]),
+    StdMethod(HRESULT, "FindDevice", [(LPD3DFINDDEVICESEARCH, "lpD3DDFS"), (LPD3DFINDDEVICERESULT6, "lpD3DFDR")]),
     StdMethod(HRESULT, "CreateDevice", [(REFCLSID, "rclsid"), (LPDIRECTDRAWSURFACE4, "lpDDS"), Out(Pointer(LPDIRECT3DDEVICE3), "lplpD3DDevice3"), (LPUNKNOWN, "lpUnk")]),
     StdMethod(HRESULT, "CreateVertexBuffer", [(LPD3DVERTEXBUFFERDESC, "lpD3DVertBufDesc"), Out(Pointer(LPDIRECT3DVERTEXBUFFER), "lplpD3DVertBuf"), (d3ddpFlags, "dwFlags"), (LPUNKNOWN, "lpUnk")]),
     StdMethod(HRESULT, "EnumZBufferFormats", [(REFCLSID, "riidDevice"), (LPD3DENUMPIXELFORMATSCALLBACK, "lpEnumCallback"), (LPVOID, "lpContext")], sideeffects=False),
@@ -216,8 +216,8 @@ IDirect3D7.methods += [
 ]
 
 IDirect3DDevice.methods += [
-    StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D"), (LPGUID, "lpGUID"), (LPD3DDEVICEDESC, "lpD3DDVDesc")]),
-    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC, "lpD3DHELDevDesc")], sideeffects=False),
+    StdMethod(HRESULT, "Initialize", [(LPDIRECT3D, "lpDirect3D"), (LPGUID, "lpGUID"), (LPD3DDEVICEDESC2, "lpD3DDVDesc")]),
+    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC2, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC2, "lpD3DHELDevDesc")], sideeffects=False),
     StdMethod(HRESULT, "SwapTextureHandles", [(LPDIRECT3DTEXTURE, "lpD3DTex1"), (LPDIRECT3DTEXTURE, "lpD3DTex2")]),
     StdMethod(HRESULT, "CreateExecuteBuffer", [(LPD3DEXECUTEBUFFERDESC, "lpDesc"), Out(Pointer(LPDIRECT3DEXECUTEBUFFER), "lplpDirect3DExecuteBuffer"), (LPUNKNOWN, "pUnkOuter")]),
     StdMethod(HRESULT, "GetStats", [(LPD3DSTATS, "lpD3DStats")], sideeffects=False),
@@ -238,7 +238,7 @@ IDirect3DDevice.methods += [
 ]
 
 IDirect3DDevice2.methods += [
-    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC, "lpD3DHELDevDesc")], sideeffects=False),
+    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC5, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC5, "lpD3DHELDevDesc")], sideeffects=False),
     StdMethod(HRESULT, "SwapTextureHandles", [(LPDIRECT3DTEXTURE2, "lpD3DTex1"), (LPDIRECT3DTEXTURE2, "lpD3DTex2")]),
     StdMethod(HRESULT, "GetStats", [Out(LPD3DSTATS, "lpD3DStats")], sideeffects=False),
     StdMethod(HRESULT, "AddViewport", [(LPDIRECT3DVIEWPORT2, "lpDirect3DViewport2")]),
@@ -271,7 +271,7 @@ IDirect3DDevice2.methods += [
 ]
 
 IDirect3DDevice3.methods += [
-    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC, "lpD3DHELDevDesc")], sideeffects=False),
+    StdMethod(HRESULT, "GetCaps", [Out(LPD3DDEVICEDESC6, "lpD3DHWDevDesc"), Out(LPD3DDEVICEDESC6, "lpD3DHELDevDesc")], sideeffects=False),
     StdMethod(HRESULT, "GetStats", [Out(LPD3DSTATS, "lpD3DStats")], sideeffects=False),
     StdMethod(HRESULT, "AddViewport", [(LPDIRECT3DVIEWPORT3, "lpDirect3DViewport3")]),
     StdMethod(HRESULT, "DeleteViewport", [(LPDIRECT3DVIEWPORT3, "lpDirect3DViewport3")]),

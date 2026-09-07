@@ -145,6 +145,7 @@ GrOriginLocation_t = FakeEnum(FxI32, [
 GrProc = Alias("GrProc", Pointer(Opaque("int (*)()")))
 
 GrScreenResolution_t = FakeEnum(FxI32, [
+    "GR_RESOLUTION_NONE",
     "GR_RESOLUTION_320x200",
     "GR_RESOLUTION_320x240",
     "GR_RESOLUTION_400x256",
@@ -161,6 +162,15 @@ GrScreenResolution_t = FakeEnum(FxI32, [
     "GR_RESOLUTION_1280x1024",
     "GR_RESOLUTION_1600x1200",
     "GR_RESOLUTION_400x300",
+    # Napalm, not known games use these
+    "GR_RESOLUTION_1152x864",
+    "GR_RESOLUTION_1280x960",
+    "GR_RESOLUTION_1600x1024",
+    "GR_RESOLUTION_1792x1344",
+    "GR_RESOLUTION_1856x1392",
+    "GR_RESOLUTION_1920x1440",
+    "GR_RESOLUTION_2048x1536",
+    "GR_RESOLUTION_2048x2048",
 ])
 
 GrResolution = Struct("GrResolution", [

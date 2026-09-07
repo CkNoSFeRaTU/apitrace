@@ -29,9 +29,10 @@
 
 import sys
 from dllretrace import DllRetracer as Retracer
-from specs.stdapi import API
+from specs.stdapi import API, Pointer, ObjPointer
 from specs.d3d import ddraw, HWND
-from specs.ddraw import DDCREATE_LPGUID
+from specs.ddraw import DDCREATE_LPGUID, DirectDrawEnumSurfacesFlags, DDSURFACEDESC, DDSURFACEDESC2
+from specs.ddraw import IDirectDraw, IDirectDraw4, IDirectDraw7, IDirectDrawSurface, IDirectDrawSurface4, IDirectDrawSurface7
 
 class D3DRetracer(Retracer):
     def retraceApi(self, api):
@@ -42,7 +43,6 @@ class D3DRetracer(Retracer):
         print('static HWND g_hWnd{0};')
         print('static int g_width = 0, g_height = 0;');
         print('static LPDIRECTDRAWCLIPPER g_clipper = nullptr;')
-        print('static std::list<void *> g_enumSurfaces;')
         print()
 
         Retracer.retraceApi(self, api)
@@ -206,11 +206,6 @@ class D3DRetracer(Retracer):
                 print(r'    if (g_hWnd && g_clipper)')
                 print(r'        d3dretrace::resizeWindow(g_hWnd, g_width, g_height);')
 
-        if interface.name.startswith('IDirectDraw') and method.name in ('EnumSurfaces', 'EnumAttachedSurfaces'):
-            print(r'    CBREnumContext context{call};')
-            print(r'    lpContext = &context;')
-            print(r'    lpEnumSurfacesCallback = &EnumAttachedSurfacesCBR;')
-
         if interface.name == 'IDirect3DDevice7' and method.name in ('ApplyStateBlock', 'CaptureStateBlock', 'DeleteStateBlock'):
             print(r'    %s = d3dstate::getStateBlockHandle(%s);' % (method.getArgByName('dwBlockHandle').name, method.getArgByName('dwBlockHandle').name))
 
@@ -258,7 +253,8 @@ class D3DRetracer(Retracer):
             print(r'                    memcpy(buffer.data(), buf, desc.dwBufferSize);')
             print(r'                    uint8_t* ptr = buf + data.dwInstructionOffset;')
             # Sadly can't rely on data.dwInstructionLength as some games send garbage there
-            print(r'                    while (true) {')
+            print(r'                    bool doParsing = true;')
+            print(r'                    while (doParsing) {')
             print(r'                        D3DINSTRUCTION* instruction = reinterpret_cast<D3DINSTRUCTION*>(ptr);')
             print(r'                        ptr += sizeof(D3DINSTRUCTION);')
             print(r'                        uint8_t* operation = ptr;')
@@ -362,7 +358,7 @@ class D3DRetracer(Retracer):
             print(r'                        }')
             print(r'                        default: {')
             print(r'                            retrace::warning(call) << "Unknown execute buffer opcode: " << static_cast<uint32_t>(instruction->bOpcode) << "\n";')
-            print(r'                            ptr += instruction->bSize * instruction->wCount;')
+            print(r'                            doParsing = false;')
             print(r'                            break;')
             print(r'                        }}')
             print(r'                    }')
@@ -406,9 +402,6 @@ class D3DRetracer(Retracer):
             print(r'    if (call.ret->toUInt() == 0) {')
             print(r'        d3d7Dumper.bindDevice(*lplpD3DDevice);')
             print(r'    }')
-
-        if interface.name.startswith('IDirectDraw') and method.name in ('EnumSurfaces', 'EnumAttachedSurfaces'):
-            print(r'    d3dretrace::clearEnumSurfaces();')
 
         if method.name == 'CreateDevice':
             print(r'    if (FAILED(_result)) {')
@@ -632,39 +625,119 @@ def main():
     print('   TEXTURE_SET,')
     print('};')
 
-    print('struct CBREnumContext {')
-    print('    trace::Call &call;')
-    print('};')
-
-    print('template <typename S, typename D>')
-    print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCBR(S* pSurface, D* pDesc, void* pContext);')
-
-    print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCBR<IDirectDrawSurface, DDSURFACEDESC>(IDirectDrawSurface*, DDSURFACEDESC*, void*);')
-    print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCBR<IDirectDrawSurface4, DDSURFACEDESC2>(IDirectDrawSurface4*, DDSURFACEDESC2*, void*);')
-    print('template HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCBR<IDirectDrawSurface7, DDSURFACEDESC2>(IDirectDrawSurface7*, DDSURFACEDESC2*, void*);')
-
     retracer = D3DRetracer()
     retracer.table_name = 'd3dretrace::ddraw_callbacks'
     retracer.retraceApi(api)
 
-    print('template <typename S, typename D>')
-    print('HRESULT CALLBACK')
-    print('EnumAttachedSurfacesCBR(S* pSurface, D* pDesc, void *pContext) {')
-    print('    CBREnumContext* context = static_cast<CBREnumContext*>(pContext);')
-    print('    unsigned long long addr = d3dretrace::getEnumSurface();')
-    print('    if (addr && pSurface) {')
-    print('        trace::Value &val = *new trace::Pointer(static_cast<uintptr_t>(addr));')
-    print('        retrace::addObj(context->call, val, pSurface);')
-    print('        return DDENUMRET_OK;')
+    print('struct EnumSurfacesContent {')
+    print('    trace::Value* surface;')
+    print('    void* desc;')
+    print('};')
+
+    print('struct EnumSurfacesContext {')
+    print('    trace::Call& call;')
+    print('    std::vector<EnumSurfacesContent> content;')
+    print('};')
+
+    print('template <typename S, typename D> HRESULT CALLBACK EnumSurfacesCallback(S* pSurface, D* pDesc, EnumSurfacesContext *pContext) {')
+    print('    if (pSurface != nullptr && pDesc != nullptr) {')
+    print('        for (const auto& value : pContext->content) {')
+    print('            if (memcmp(pDesc, value.desc, sizeof(D)) == 0) {')
+    print('                retrace::addObj(pContext->call, *value.surface, pSurface);')
+    print('            } else {')
+    print('            }')
+    print('        }')
     print('    }')
-    print('    return DDENUMRET_CANCEL;')
+    print('')
+    print('    return DDENUMRET_OK;')
     print('}')
 
-
+    print('void EnumSurfacesCallbacks(trace::Call& call) {')
+    print('    const std::string delimiter = "::";');
+    print('    std::string name{call.arg(1).toString()};')
+    print('    const trace::Array *results = call.arg(3).toArray();')
+    print('    std::vector<std::string> t;')
+    print('    size_t pos = 0, ppos = 0;')
+    print('    while ((pos = name.find(delimiter, ppos)) != std::string::npos) {')
+    print('        t.push_back(name.substr(ppos, pos - ppos));')
+    print('        ppos = pos + delimiter.length();')
+    print('    }')
+    print('    if (ppos < name.size())')
+    print('         t.push_back(name.substr(ppos));')
+    print('')
+    print('    if (t.size() != 2)')
+    print('        return;')
+    print('')
+    print('    std::string& intf = t[0], &method = t[1];')
+    print('')
+    print('    EnumSurfacesContext context{call};')
+    print('')
+    print('    retrace::ScopedAllocator _allocator;')
+    print('    if (results != nullptr) {')
+    print('        for (auto& result : results->values) {')
+    print('            if (result != nullptr) {')
+    print('                trace::Struct* s = result->toStruct();')
+    print('                trace::Value* origSurface = s->members[0];')
+    print('                if (origSurface != nullptr) {')
+    print('                    EnumSurfacesContent content;')
+    print('                    if (intf == "IDirectDraw4" || intf == "IDirectDraw7" || intf == "IDirectDrawSurface4" || intf == "IDirectDrawSurface7") {')
+    retracer.deserialize(Pointer(DDSURFACEDESC2), "desc", "*s->members[1]")
+    print('                        context.content.emplace_back(EnumSurfacesContent{origSurface, (void*)desc});')
+    print('                    } else {')
+    retracer.deserialize(Pointer(DDSURFACEDESC), "desc", "*s->members[1]")
+    print('                        context.content.emplace_back(EnumSurfacesContent{origSurface, (void*)desc});')
+    print('                    }')
+    print('                }')
+    print('            }')
+    print('        }')
+    print('    }')
+    print('')
+    print('    if (intf == "IDirectDraw") {')
+    print('        LPDDENUMSURFACESCALLBACK callback = (LPDDENUMSURFACESCALLBACK)&EnumSurfacesCallback<IDirectDrawSurface, DDSURFACEDESC>;')
+    retracer.deserialize(ObjPointer(IDirectDraw), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    retracer.deserialize(DirectDrawEnumSurfacesFlags, "dwFlags", "call.arg(4)")
+    retracer.deserialize(Pointer(DDSURFACEDESC), "lpDDSurfaceDesc", "call.arg(5)")
+    print('            origin->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, callback);')
+    print('        }')
+    print('    } else if (intf == "IDirectDraw4") {')
+    print('        LPDDENUMSURFACESCALLBACK2 callback = (LPDDENUMSURFACESCALLBACK2)&EnumSurfacesCallback<IDirectDrawSurface4, DDSURFACEDESC2>;')
+    retracer.deserialize(ObjPointer(IDirectDraw4), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    retracer.deserialize(DirectDrawEnumSurfacesFlags, "dwFlags", "call.arg(4)")
+    retracer.deserialize(Pointer(DDSURFACEDESC2), "lpDDSurfaceDesc", "call.arg(5)")
+    print('            origin->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, callback);')
+    print('        }')
+    print('    } else if (intf == "IDirectDraw7") {')
+    print('        LPDDENUMSURFACESCALLBACK7 callback = (LPDDENUMSURFACESCALLBACK7)&EnumSurfacesCallback<IDirectDrawSurface7, DDSURFACEDESC2>;')
+    retracer.deserialize(ObjPointer(IDirectDraw7), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    retracer.deserialize(DirectDrawEnumSurfacesFlags, "dwFlags", "call.arg(4)")
+    retracer.deserialize(Pointer(DDSURFACEDESC2), "lpDDSurfaceDesc", "call.arg(5)")
+    print('            origin->EnumSurfaces(dwFlags, lpDDSurfaceDesc, &context, callback);')
+    print('        }')
+    print('    } else if (intf == "IDirectDrawSurface") {')
+    print('        LPDDENUMSURFACESCALLBACK callback = (LPDDENUMSURFACESCALLBACK)&EnumSurfacesCallback<IDirectDrawSurface, DDSURFACEDESC>;')
+    retracer.deserialize(ObjPointer(IDirectDrawSurface), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    print('            origin->EnumAttachedSurfaces(&context, callback);')
+    print('        }')
+    print('    } else if (intf == "IDirectDrawSurface4") {')
+    print('        LPDDENUMSURFACESCALLBACK2 callback = (LPDDENUMSURFACESCALLBACK2)&EnumSurfacesCallback<IDirectDrawSurface4, DDSURFACEDESC2>;')
+    retracer.deserialize(ObjPointer(IDirectDrawSurface4), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    print('            origin->EnumAttachedSurfaces(&context, callback);')
+    print('        }')
+    print('    } else if (intf == "IDirectDrawSurface7") {')
+    print('        LPDDENUMSURFACESCALLBACK7 callback = (LPDDENUMSURFACESCALLBACK7)&EnumSurfacesCallback<IDirectDrawSurface7, DDSURFACEDESC2>;')
+    retracer.deserialize(ObjPointer(IDirectDrawSurface7), "origin", "call.arg(0)")
+    print('        if (origin != nullptr) {')
+    print('            origin->EnumAttachedSurfaces(&context, callback);')
+    print('        }')
+    print('    }')
+    print('')
+    # TODO: we should release surfaces after loop was canceled by DDENUMRET_CANCEL/D3DENUMRET_CANCEL
+    print('}')
 
 if __name__ == '__main__':
     main()

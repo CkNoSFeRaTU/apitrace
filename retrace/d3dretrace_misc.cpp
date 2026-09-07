@@ -38,7 +38,6 @@ namespace d3dretrace {
 
 typedef std::map<unsigned long long, HDC> HDCMap;
 static HDCMap hdc_map;
-static std::list<unsigned long long> enumSurfaces;
 
 void
 setHDC(unsigned long long hdc_id, HDC hDC) {
@@ -68,22 +67,8 @@ getHDC(unsigned long long hdc_id) {
     return it->second;
 }
 
-unsigned long long
-getEnumSurface() {
-    unsigned long long result = enumSurfaces.front();
-    enumSurfaces.pop_front();
-
-    return result;
-}
-
-void
-clearEnumSurfaces() {
-    enumSurfaces.clear();
-}
-
 static void
-retrace_bitblt(trace::Call& call)
-{
+retrace_bitblt(trace::Call& call) {
     HDC hDC = getHDC(call.arg(0).toUInt());
     if (!hDC) {
         os::log("bitblt: received unmapped HDC\n");
@@ -147,24 +132,18 @@ retrace_bitblt(trace::Call& call)
     DeleteDC(mDC);
 }
 
-static void
-retrace_enumsurfacescallback(trace::Call& call)
-{
-    unsigned long long origSurface = call.arg(2).toUInt();
-    if (origSurface) {
-        enumSurfaces.push_back(origSurface);
-    }
-}
-
-static void
-retrace_executebufferdump(trace::Call& call)
-{
+static void FakeNop(trace::Call& call) {
 }
 
 const retrace::Entry ddraw_misc_callbacks[] = {
-    { "bitblt", &retrace_bitblt },
-    { "enumsurfacescallback", &retrace_enumsurfacescallback },
-    { "executebufferdump", &retrace_executebufferdump },
+    { "BitBlt", &retrace_bitblt },
+    { "DirectDrawEnumerateCallbacks", &FakeNop },
+    { "EnumDisplayModesCallbacks", &FakeNop },
+    { "EnumDevicesCallbacks", &FakeNop },
+    { "EnumSurfacesCallbacks", &EnumSurfacesCallbacks },
+    { "EnumTexturesFormatsCallbacks", &FakeNop },
+    { "EnumZBufferFormatsCallbacks", &FakeNop },
+    { "ExecuteBufferDump", &FakeNop },
     { NULL, NULL },
 };
 

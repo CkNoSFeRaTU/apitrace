@@ -911,7 +911,7 @@ class Tracer:
         print(r'}')
         print()
 
-    def implementWrapperInterfaceMethod(self, interface, base, method):
+    def implementWrapperInterfaceMethod(self, interface, base, method, beforeUnwrap = None):
         wrapperInterfaceName = getWrapperInterfaceName(interface)
 
         print(method.prototype(wrapperInterfaceName + '::' + method.name) + ' {')
@@ -923,6 +923,10 @@ class Tracer:
             print('    %s _result;' % method.type)
     
         print('    %s *_this = static_cast<%s *>(m_pInstance);' % (base, base))
+
+        if beforeUnwrap:
+            beforeUnwrap()
+
         for arg in method.args:
             if not arg.output:
                 self.unwrapArg(method, arg)

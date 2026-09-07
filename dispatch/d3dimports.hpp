@@ -187,3 +187,48 @@
 #define D3DFVFCAPS_PSIZE 0x00100000L
 #define D3DVTXPCAPS_TWEENING 0x00000040L
 #define D3DVTXPCAPS_NO_VSDT_UBYTE4 0x00000080L
+
+// used in D3D2/3
+typedef struct _D3DDeviceDesc2 {
+        DWORD            dwSize;
+        DWORD            dwFlags;
+        D3DCOLORMODEL    dcmColorModel;
+        DWORD            dwDevCaps;
+        D3DTRANSFORMCAPS dtcTransformCaps;
+        BOOL             bClipping;
+        D3DLIGHTINGCAPS  dlcLightingCaps;
+        D3DPRIMCAPS      dpcLineCaps;
+        D3DPRIMCAPS      dpcTriCaps;
+        DWORD            dwDeviceRenderBitDepth;
+        DWORD            dwDeviceZBufferBitDepth;
+        DWORD            dwMaxBufferSize;
+        DWORD            dwMaxVertexCount;
+} D3DDEVICEDESC2;
+
+// used in D3D5
+typedef struct _D3DDeviceDesc5 {
+        DWORD            dwSize;
+        DWORD            dwFlags;
+        D3DCOLORMODEL    dcmColorModel;
+        DWORD            dwDevCaps;
+        D3DTRANSFORMCAPS dtcTransformCaps;
+        BOOL             bClipping;
+        D3DLIGHTINGCAPS  dlcLightingCaps;
+        D3DPRIMCAPS      dpcLineCaps;
+        D3DPRIMCAPS      dpcTriCaps;
+        DWORD            dwDeviceRenderBitDepth;
+        DWORD            dwDeviceZBufferBitDepth;
+        DWORD            dwMaxBufferSize;
+        DWORD            dwMaxVertexCount;
+        DWORD            dwMinTextureWidth;
+        DWORD            dwMinTextureHeight;
+        DWORD            dwMaxTextureWidth;
+        DWORD            dwMaxTextureHeight;
+        DWORD            dwMinStippleWidth;
+        DWORD            dwMaxStippleWidth;
+        DWORD            dwMinStippleHeight;
+        DWORD            dwMaxStippleHeight;
+} D3DDEVICEDESC5;
+
+// D3D6 is what we have in headers, let's do define for consistency
+#define D3DDEVICEDESC6 D3DDEVICEDESC

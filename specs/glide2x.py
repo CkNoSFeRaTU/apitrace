@@ -147,6 +147,7 @@ GrOriginLocation_t = FakeEnum(FxI32, [
 ])
 
 GrScreenResolution_t = FakeEnum(FxI32, [
+    "GR_RESOLUTION_NONE",
     "GR_RESOLUTION_320x200",
     "GR_RESOLUTION_320x240",
     "GR_RESOLUTION_400x256",

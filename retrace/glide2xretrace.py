@@ -54,7 +54,10 @@ class GlideRetracer(Retracer):
     def invokeFunction(self, function):
         if function.name == 'grSstWinOpen':
             print(r'    g_windowed = false;')
-            print(r'    switch(screen_resolution) {')
+            # Unofficial extention for custom resolutions, implemented at least in NFS3 modern patch and nGlide
+            print(r'    if (screen_resolution > 0xFF) {')
+            print(r'        g_width = screen_resolution >> 16; g_height = screen_resolution & 0xFFFF;')
+            print(r'    } else switch(screen_resolution) {')
             print(r'        case(GR_RESOLUTION_NONE): g_width = 640; g_height = 480; g_windowed = true;')
             print(r'        case(GR_RESOLUTION_320x200): g_width = 320; g_height = 200; break;')
             print(r'        case(GR_RESOLUTION_320x240): g_width = 320; g_height = 240; break;')

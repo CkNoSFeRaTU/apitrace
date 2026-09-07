@@ -26,9 +26,6 @@ from specs.glide1x import glide1x
 from specs.stdapi import API
 
 class Glide1xTracer(DllTracer):
-    def implementWrapperInterfaceMethodBody(self, interface, base, method):
-        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags, afterCall = afterCall)
-
     def traceFunctionImplBody(self, function):
         callFlags = "trace::FLAG_NONE"
         resultOverride = None
@@ -91,7 +88,11 @@ class Glide1xTracer(DllTracer):
             print(r'    }')
 
         if function.name == 'grSstOpen':
-            print(r'    switch(screen_resolution) {')
+            # Unofficial extention for custom resolutions, implemented at least in NFS3 modern patch and nGlide
+            print(r'    if (screen_resolution > 0xFF) {')
+            print(r'        g_width = screen_resolution >> 16; g_height = screen_resolution & 0xFFFF;')
+            print(r'    } else switch(screen_resolution) {')
+            print(r'        case(GR_RESOLUTION_NONE): g_width = 640; g_height = 480;')
             print(r'        case(GR_RESOLUTION_320x200): g_width = 320; g_height = 200; break;')
             print(r'        case(GR_RESOLUTION_320x240): g_width = 320; g_height = 240; break;')
             print(r'        case(GR_RESOLUTION_400x256): g_width = 400; g_height = 256; break;')

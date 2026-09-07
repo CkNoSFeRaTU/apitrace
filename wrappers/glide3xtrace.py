@@ -26,9 +26,6 @@ from specs.glide3x import glide3x
 from specs.stdapi import API
 
 class Glide3xTracer(DllTracer):
-    def implementWrapperInterfaceMethodBody(self, interface, base, method):
-        DllTracer.implementWrapperInterfaceMethodBody(self, interface, base, method, resultOverride = resultOverride, callFlags = callFlags, afterCall = afterCall)
-
     def traceFunctionImplBody(self, function):
         callFlags = "trace::FLAG_NONE"
 
@@ -69,7 +66,11 @@ class Glide3xTracer(DllTracer):
             print(r'    }')
 
         if function.name == 'grSstWinOpen':
-            print(r'    switch(screen_resolution) {')
+            # Unofficial extention for custom resolutions, implemented at least in NFS3 modern patch and nGlide
+            print(r'    if (screen_resolution > 0xFF) {')
+            print(r'        g_width = screen_resolution >> 16; g_height = screen_resolution & 0xFFFF;')
+            print(r'    } else switch(screen_resolution) {')
+            print(r'        case(GR_RESOLUTION_NONE): g_width = 640; g_height = 480;')
             print(r'        case(GR_RESOLUTION_320x200): g_width = 320; g_height = 200; break;')
             print(r'        case(GR_RESOLUTION_320x240): g_width = 320; g_height = 240; break;')
             print(r'        case(GR_RESOLUTION_400x256): g_width = 400; g_height = 256; break;')
@@ -86,6 +87,15 @@ class Glide3xTracer(DllTracer):
             print(r'        case(GR_RESOLUTION_1280x1024): g_width = 1280; g_height = 1024; break;')
             print(r'        case(GR_RESOLUTION_1600x1200): g_width = 1600; g_height = 1200; break;')
             print(r'        case(GR_RESOLUTION_400x300): g_width = 400; g_height = 300; break;')
+            # Napalm only, no known games uses these
+            print(r'        case(GR_RESOLUTION_1152x864): g_width = 1152; g_height = 864; break;')
+            print(r'        case(GR_RESOLUTION_1280x960): g_width = 1280; g_height = 960; break;')
+            print(r'        case(GR_RESOLUTION_1600x1024): g_width = 1600; g_height = 1024; break;')
+            print(r'        case(GR_RESOLUTION_1792x1344): g_width = 1792; g_height = 1344; break;')
+            print(r'        case(GR_RESOLUTION_1856x1392): g_width = 1856; g_height = 1392; break;')
+            print(r'        case(GR_RESOLUTION_1920x1440): g_width = 1920; g_height = 1440; break;')
+            print(r'        case(GR_RESOLUTION_2048x1536): g_width = 2048; g_height = 1536; break;')
+            print(r'        case(GR_RESOLUTION_2048x2048): g_width = 2048; g_height = 2048; break;')
             print(r'    }')
 
 if __name__ == '__main__':

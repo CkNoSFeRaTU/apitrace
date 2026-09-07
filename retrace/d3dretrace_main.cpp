@@ -33,7 +33,6 @@
 #include "retrace.hpp"
 #include "d3dretrace.hpp"
 
-
 void
 retrace::setFeatureLevel(const char *featureLevel) {
     /* TODO: Allow to override D3D feature level. */

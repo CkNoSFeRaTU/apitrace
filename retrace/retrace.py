@@ -564,6 +564,11 @@ class Retracer:
         print('    }')
         print('    return;')
 
+    def deserialize(self, arg_type, lvalue, rvalue):
+        print(r'    %s %s;' % (arg_type, lvalue))
+        ValueAllocator().visit(arg_type, lvalue, rvalue)
+        ValueDeserializer().visit(arg_type, lvalue, rvalue)
+
     def extractArg(self, function, arg, arg_type, lvalue, rvalue):
         ValueAllocator().visit(arg_type, lvalue, rvalue)
         if arg.input:

@@ -412,7 +412,52 @@ D3DDEVINFO_TEXTURING = Struct("D3DDEVINFO_TEXTURING", [
     (DWORD, "dwNumGetDCs"),
 ])
 
-D3DDEVICEDESC = Struct("D3DDEVICEDESC", [
+# D3D2/3
+D3DDEVICEDESC2 = Struct("D3DDEVICEDESC", [
+    (DWORD, "dwSize"),
+    (DWORD, "dwFlags"),
+    (D3DCOLORMODEL, "dcmColorModel"),
+    (DWORD, "dwDevCaps"),
+    (D3DTRANSFORMCAPS, "dtcTransformCaps"),
+    (BOOL, "bClipping"),
+    (D3DLIGHTINGCAPS, "dlcLightingCaps"),
+    (D3DPRIMCAPS, "dpcLineCaps"),
+    (D3DPRIMCAPS, "dpcTriCaps"),
+    (DWORD, "dwDeviceRenderBitDepth"),
+    (DWORD, "dwDeviceZBufferBitDepth"),
+    (DWORD, "dwMaxBufferSize"),
+    (DWORD, "dwMaxVertexCount"),
+])
+LPD3DDEVICEDESC2 = Pointer(D3DDEVICEDESC2)
+
+# D3D5
+D3DDEVICEDESC5 = Struct("D3DDEVICEDESC", [
+    (DWORD, "dwSize"),
+    (DWORD, "dwFlags"),
+    (D3DCOLORMODEL, "dcmColorModel"),
+    (DWORD, "dwDevCaps"),
+    (D3DTRANSFORMCAPS, "dtcTransformCaps"),
+    (BOOL, "bClipping"),
+    (D3DLIGHTINGCAPS, "dlcLightingCaps"),
+    (D3DPRIMCAPS, "dpcLineCaps"),
+    (D3DPRIMCAPS, "dpcTriCaps"),
+    (DWORD, "dwDeviceRenderBitDepth"),
+    (DWORD, "dwDeviceZBufferBitDepth"),
+    (DWORD, "dwMaxBufferSize"),
+    (DWORD, "dwMaxVertexCount"),
+    (DWORD, "dwMinTextureWidth"),
+    (DWORD, "dwMinTextureHeight"),
+    (DWORD, "dwMaxTextureWidth"),
+    (DWORD, "dwMaxTextureHeight"),
+    (DWORD, "dwMinStippleWidth"),
+    (DWORD, "dwMaxStippleWidth"),
+    (DWORD, "dwMinStippleHeight"),
+    (DWORD, "dwMaxStippleHeight"),
+])
+LPD3DDEVICEDESC5 = Pointer(D3DDEVICEDESC5)
+
+# D3D6
+D3DDEVICEDESC6 = Struct("D3DDEVICEDESC", [
     (DWORD, "dwSize"),
     (D3DDD, "dwFlags"),
     (D3DCOLORMODEL, "dcmColorModel"),
@@ -448,7 +493,7 @@ D3DDEVICEDESC = Struct("D3DDEVICEDESC", [
     (WORD, "wMaxTextureBlendStages"),
     (WORD, "wMaxSimultaneousTextures"),
 ])
-LPD3DDEVICEDESC = Pointer(D3DDEVICEDESC)
+LPD3DDEVICEDESC6 = Pointer(D3DDEVICEDESC6)
 
 D3DDEVICEDESC7 = Struct("D3DDEVICEDESC7", [
     (D3DDEVCAPS, "dwDevCaps"),
@@ -486,14 +531,32 @@ D3DDEVICEDESC7 = Struct("D3DDEVICEDESC7", [
 ])
 LPD3DDEVICEDESC7 = Pointer(D3DDEVICEDESC7)
 
-D3DFINDDEVICERESULT = Struct("D3DFINDDEVICERESULT", [
+D3DFINDDEVICERESULT2 = Struct("D3DFINDDEVICERESULT", [
     (DWORD, "dwSize"),
     (GUID, "guid"),
-    (D3DDEVICEDESC, "ddHwDesc"),
-    (D3DDEVICEDESC, "ddSwDesc"),
+    (D3DDEVICEDESC2, "ddHwDesc"),
+    (D3DDEVICEDESC2, "ddSwDesc"),
 ])
-LPD3DFINDDEVICERESULT = Pointer(D3DFINDDEVICERESULT)
+LPD3DFINDDEVICERESULT2 = Pointer(D3DFINDDEVICERESULT2)
 
-LPD3DENUMDEVICESCALLBACK = FunctionPointer(HRESULT, "LPD3DENUMDEVICESCALLBACK", [(Pointer(GUID), "lpGuid"), (LPSTR, "lpDeviceDescription"), (LPSTR, "lpDeviceName"), LPD3DDEVICEDESC, LPD3DDEVICEDESC, LPVOID])
+D3DFINDDEVICERESULT5 = Struct("D3DFINDDEVICERESULT", [
+    (DWORD, "dwSize"),
+    (GUID, "guid"),
+    (D3DDEVICEDESC5, "ddHwDesc"),
+    (D3DDEVICEDESC5, "ddSwDesc"),
+])
+LPD3DFINDDEVICERESULT5 = Pointer(D3DFINDDEVICERESULT5)
+
+D3DFINDDEVICERESULT6 = Struct("D3DFINDDEVICERESULT", [
+    (DWORD, "dwSize"),
+    (GUID, "guid"),
+    (D3DDEVICEDESC6, "ddHwDesc"),
+    (D3DDEVICEDESC6, "ddSwDesc"),
+])
+LPD3DFINDDEVICERESULT6 = Pointer(D3DFINDDEVICERESULT6)
+
+LPD3DENUMDEVICESCALLBACK2 = FunctionPointer(HRESULT, "LPD3DENUMDEVICESCALLBACK", [(Pointer(GUID), "lpGuid"), (LPSTR, "lpDeviceDescription"), (LPSTR, "lpDeviceName"), LPD3DDEVICEDESC2, LPD3DDEVICEDESC2, LPVOID])
+LPD3DENUMDEVICESCALLBACK5 = FunctionPointer(HRESULT, "LPD3DENUMDEVICESCALLBACK", [(Pointer(GUID), "lpGuid"), (LPSTR, "lpDeviceDescription"), (LPSTR, "lpDeviceName"), LPD3DDEVICEDESC5, LPD3DDEVICEDESC5, LPVOID])
+LPD3DENUMDEVICESCALLBACK6 = FunctionPointer(HRESULT, "LPD3DENUMDEVICESCALLBACK", [(Pointer(GUID), "lpGuid"), (LPSTR, "lpDeviceDescription"), (LPSTR, "lpDeviceName"), LPD3DDEVICEDESC6, LPD3DDEVICEDESC6, LPVOID])
 LPD3DENUMDEVICESCALLBACK7 = FunctionPointer(HRESULT, "LPD3DENUMDEVICESCALLBACK7", [(LPSTR, "lpDeviceDescription"), (LPSTR, "lpDeviceName"), LPD3DDEVICEDESC7, LPVOID])
 
