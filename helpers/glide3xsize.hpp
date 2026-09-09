@@ -64,3 +64,14 @@ _getVertexSize() {
 
     return size;
 }
+
+static inline size_t
+_getStateSize() {
+    FxI32 size;
+    _grGet(GR_GLIDE_STATE_SIZE, sizeof(size), &size);
+
+    if (size < 0)
+      return 0;
+
+    return size;
+}

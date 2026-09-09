@@ -63,3 +63,8 @@ _getTexSizeGU(GrMipMapId_t mmid) {
 
     return 0;
 }
+
+static inline size_t
+_getStateSize() {
+    return sizeof(GrState);
+}
