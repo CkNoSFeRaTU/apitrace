@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -258,6 +259,7 @@ IFormatToTexFormat(GrIntFmt_t format) {
             return GR_TEXFMT_RGB_888;
 #endif
         default:
+            assert(0);
             break;
     }
 
@@ -290,6 +292,7 @@ LfbWriteModeToIFormat(GrLfbWriteMode_t writeMode) {
 #endif
             return GR_FMT_ZA_16;
         default:
+            assert(0);
             break;
     }
 
@@ -396,6 +399,9 @@ _getTexFormatSize(GrIntFmt_t format, FxU32* BlockSize, FxU32* BlockWidth = nullp
             *BlockSize = 128;
         break;
 #endif
+    default:
+        assert(0);
+        break;
     }
 }
 
@@ -416,7 +422,6 @@ _getITexSize(GrLOD_t smallLodLog2, GrLOD_t largeLodLog2
     GrLOD_t thisLargeLodLog2 = largeLodLog2;
     while (thisLargeLodLog2 >= smallLodLog2) {
         FxU32 currentParity = (thisLargeLodLog2 % GR_MIPMAPLEVELMASK_ODD == 0) ? GR_MIPMAPLEVELMASK_EVEN : GR_MIPMAPLEVELMASK_ODD;
-        FxU32 currentSize = 0;
         if ((evenOdd & currentParity) != 0) {
             FxU32 width, height, blockSize, blockWidth, blockHeight;
             _getTexDimensions(thisSmallLodLog2, thisLargeLodLog2, aspectRatioLog2, width, height);

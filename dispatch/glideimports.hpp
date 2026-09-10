@@ -36,17 +36,17 @@
 #ifdef GLIDE_NUM_TMU
 #undef GLIDE_NUM_TMU
 #endif
-// technically in Glide3X it is variable and you supposed to query GR_FOG_TABLE_ENTRIES via grGet, but all released hardware still used 64.
-#define GR_FOG_TABLE_SIZE 64
 #define GLIDE_NUM_TMU 4
 #include <tlib.h>
 #include <g3ext.h>
 #else
-#define GR_FOG_TABLE_SIZE 64
 #define SST_TEXTURE_ALIGN 0x10UL
 #define SST_TEXTURE_ALIGN_MASK (SST_TEXTURE_ALIGN - 0x01UL)
 #include <gmovie.h>
 #include <gump.h>
+#ifdef GLIDE_NUM_TMU
+#undef GLIDE_NUM_TMU
+#endif
 #define GLIDE_NUM_TMU 2
 #endif
 

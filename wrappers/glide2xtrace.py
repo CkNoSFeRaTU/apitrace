@@ -28,6 +28,7 @@ from specs.stdapi import API
 class Glide2xTracer(DllTracer):
     def traceFunctionImplBody(self, function):
         callFlags = "trace::FLAG_NONE"
+        resultOverride = None
 
         print('if (!std::exchange(g_apiSet, true)) {');
         print('    const trace::FunctionSig glide_sig = {%s, "Glide2X", 0, nullptr};' % self.getFunctionSigId())
@@ -67,7 +68,13 @@ class Glide2xTracer(DllTracer):
             self.emit_memcpy('_origPtr', 'g_mappedSize')
             print(r'    }')
 
-        DllTracer.traceFunctionImplBody(self, function, callFlags = callFlags)
+        # nGlide is rendering grSplash in grSstWinOpen, so it is holding it until splash is finished and so grSstWinOpen call become clobbered and lost.
+        # Just write success there, write call information and only after that call grSstWinOpen
+        if function.name == 'grSstWinOpen':
+            print(r'    _result = 1;')
+            resultOverride = "_result"
+
+        DllTracer.traceFunctionImplBody(self, function, callFlags = callFlags, resultOverride = resultOverride)
 
         if function.name == 'guTexDownloadMipMapLevel':
             print(r'    if (_origPtr != nullptr && g_mappedSize > 0) {')
@@ -103,6 +110,7 @@ class Glide2xTracer(DllTracer):
             print(r'        case(GR_RESOLUTION_1600x1200): g_width = 1600; g_height = 1200; break;')
             print(r'        case(GR_RESOLUTION_400x300): g_width = 400; g_height = 300; break;')
             print(r'    }')
+            print(r'    _result = _grSstWinOpen(hWnd, screen_resolution, refresh_rate, color_format, origin_location, nColBuffers, nAuxBuffers);')
 
 if __name__ == '__main__':
     print('#include "glideimports.hpp"')

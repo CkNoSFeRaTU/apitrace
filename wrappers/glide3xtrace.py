@@ -28,6 +28,7 @@ from specs.stdapi import API
 class Glide3xTracer(DllTracer):
     def traceFunctionImplBody(self, function):
         callFlags = "trace::FLAG_NONE"
+        resultOverride = None
 
         print('if (!std::exchange(g_apiSet, true)) {')
         print('    const trace::FunctionSig glide_sig = {%s, "Glide3X", 0, nullptr};' % self.getFunctionSigId())
@@ -58,12 +59,21 @@ class Glide3xTracer(DllTracer):
             print(r'        callFlags = trace::FLAG_END_FRAME;')
             callFlags = "callFlags"
 
-        DllTracer.traceFunctionImplBody(self, function, callFlags = callFlags)
+        # nGlide is rendering grSplash in grSstWinOpen, so it is holding it until splash is finished and so grSstWinOpen call become clobbered and lost.
+        # Just write success there, write call information and only after that call grSstWinOpen
+        if function.name == 'grSstWinOpen':
+            print(r'    _result = 1;')
+            resultOverride = "_result"
+
+        DllTracer.traceFunctionImplBody(self, function, callFlags = callFlags, resultOverride = resultOverride)
 
         if function.name == 'grLfbLock':
             print(r'    if (info != nullptr && type != GR_LFB_READ_ONLY) {')
             print(r'        g_locks[buffer] = {info->lfbPtr, info->strideInBytes * g_height};')
             print(r'    }')
+
+        if function.name == 'grVertexLayout':
+            print(r'    _setVertexSize(param, offset, mode);')
 
         if function.name == 'grSstWinOpen':
             # Unofficial extention for custom resolutions, implemented at least in NFS3 modern patch and nGlide
@@ -97,6 +107,7 @@ class Glide3xTracer(DllTracer):
             print(r'        case(GR_RESOLUTION_2048x1536): g_width = 2048; g_height = 1536; break;')
             print(r'        case(GR_RESOLUTION_2048x2048): g_width = 2048; g_height = 2048; break;')
             print(r'    }')
+            print(r'    _result = _grSstWinOpen(hWnd, screen_resolution, refresh_rate, color_format, origin_location, nColBuffers, nAuxBuffers);')
 
 if __name__ == '__main__':
     print('#include "glideimports.hpp"')

@@ -79,7 +79,13 @@ class Glide1xTracer(DllTracer):
             self.emit_memcpy('_origPtr', 'g_mappedSize')
             print(r'    }')
 
-        DllTracer.traceFunctionImplBody(self, function, resultOverride = resultOverride, callFlags = callFlags)
+        # nGlide is rendering grSplash in grSstOpen, so it is holding it until splash is finished and so grSstWinOpen call become clobbered and lost.
+        # Just write success there, write call information and only after that call grSstOpen
+        if function.name == 'grSstOpen':
+            print(r'    _result = 1;')
+            resultOverride = "_result"
+
+        DllTracer.traceFunctionImplBody(self, function, callFlags = callFlags, resultOverride = resultOverride)
 
         if function.name == 'guTexDownloadMipMapLevel':
             print(r'    if (_origPtr != nullptr && g_mappedSize > 0) {')
@@ -110,6 +116,7 @@ class Glide1xTracer(DllTracer):
             print(r'    g_lock.mode = GR_LFBWRITEMODE_565;')
             print(r'    g_lock.ptr = nullptr;')
             print(r'    g_lock.size = 0;')
+            print(r'    _result = _grSstOpen(screen_resolution, refresh_rate, color_format, origin_location, smoothing_filter, num_buffers);')
 
 if __name__ == '__main__':
     print('#include "glideimports.hpp"')

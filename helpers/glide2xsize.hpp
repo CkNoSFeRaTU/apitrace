@@ -34,12 +34,18 @@
 #include "glidecommonsize.hpp"
 #undef ASPECT_TRANSLATE
 
-#include <string>
-#include <iostream>
-#include <fstream>
-
 typedef FxU32 (__stdcall * PFN_GRTEXTEXTUREMEMREQUIRED)(FxU32 evenOdd, GrTexInfo* info);
 extern PFN_GRTEXTEXTUREMEMREQUIRED _grTexTextureMemRequired;
+
+static inline size_t
+_getFogTableSize() {
+    return 64;
+}
+
+static inline size_t
+_getStateSize() {
+    return sizeof(GrState);
+}
 
 static inline size_t
 _getTexSizeAPI(GrLOD_t smallLod, GrLOD_t largeLod
@@ -65,6 +71,6 @@ _getTexSizeGU(GrMipMapId_t mmid) {
 }
 
 static inline size_t
-_getStateSize() {
-    return sizeof(GrState);
+_getVertexSize() {
+    return sizeof(GrVertex);
 }

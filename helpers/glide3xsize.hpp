@@ -34,13 +34,32 @@
 #include "glidecommonsize.hpp"
 #undef ASPECT_TRANSLATE
 
-#include <string>
-#include <fstream>
+#include <unordered_map>
 
 typedef FxU32 (__stdcall * PFN_GRGET)(FxU32 pname, FxU32 plength, FxI32 * params);
 extern PFN_GRGET _grGet;
 typedef FxU32 (__stdcall * PFN_GRTEXTEXTUREMEMREQUIRED)(FxU32 evenOdd, GrTexInfo* info);
 extern PFN_GRTEXTEXTUREMEMREQUIRED _grTexTextureMemRequired;
+
+static std::unordered_map<FxU32, FxU32> _vLayout = {};
+
+static inline size_t
+_getFogTableSize() {
+    FxI32 size = 0;
+    if (_grGet(GR_FOG_TABLE_ENTRIES, sizeof(size), &size) == sizeof(size))
+      return size;
+
+    return 0;
+}
+
+static inline size_t
+_getStateSize() {
+    FxI32 size = 0;
+    if (_grGet(GR_GLIDE_STATE_SIZE, sizeof(size), &size) == sizeof(size))
+      return size;
+
+    return 0;
+}
 
 static inline size_t
 _getTexSizeAPI(GrLOD_t smallLodLog2, GrLOD_t largeLodLog2, GrAspectRatio_t aspectRatioLog2, GrTextureFormat_t format, FxU32 evenOdd = GR_MIPMAPLEVELMASK_BOTH) {
@@ -55,23 +74,57 @@ _getTexSizeAPI(GrLOD_t smallLodLog2, GrLOD_t largeLodLog2, GrAspectRatio_t aspec
 }
 
 static inline size_t
-_getVertexSize() {
-    FxI32 size;
-    _grGet(GR_GLIDE_VERTEXLAYOUT_SIZE, sizeof(size), &size);
+_getVertexLayoutSize() {
+    FxI32 size = 0;
+    if (_grGet(GR_GLIDE_VERTEXLAYOUT_SIZE, sizeof(size), &size) == sizeof(size))
+      return size;
 
-    if (size < 0)
-      return 0;
-
-    return size;
+    return 0;
 }
 
 static inline size_t
-_getStateSize() {
-    FxI32 size;
-    _grGet(GR_GLIDE_STATE_SIZE, sizeof(size), &size);
+_getVertexSize() {
+    FxU32 maxOffset = 0, maxParam = GR_PARAM_XY;
+    for (auto& [param, offset] : _vLayout) {
+        if (maxOffset < offset) {
+            maxOffset = offset;
+            maxParam = param;
+        }
+    }
 
-    if (size < 0)
-      return 0;
+    FxU32 size = 0;
+    switch (maxParam) {
+        case GR_PARAM_Z:
+        case GR_PARAM_W:
+        case GR_PARAM_A:
+        case GR_PARAM_PARGB:
+        case GR_PARAM_Q:
+        case GR_PARAM_Q0:
+        case GR_PARAM_Q1:
+        case GR_PARAM_Q2:
+            size = 4;
+            break;
+        case GR_PARAM_XY:
+            size = 8;
+            break;
+        case GR_PARAM_RGB:
+        case GR_PARAM_ST0:
+        case GR_PARAM_ST1:
+        case GR_PARAM_ST2:
+            size = 12;
+            break;
+        default:
+            assert(0);
+    }
 
-    return size;
+    return maxOffset + size;
+}
+
+static inline void
+_setVertexSize(FxU32 param, FxU32 offset, FxU32 mode) {
+    if (mode == GR_PARAM_ENABLE) {
+        _vLayout[param] = offset;
+    } else {
+        _vLayout[param] = 0;
+    }
 }
